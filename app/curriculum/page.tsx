@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 export const revalidate = 3600;
 
 export default async function CurriculumPage() {
-    const docsDir = path.join(process.cwd(), "docs");
+    const docsDir = path.join(process.cwd(), "Docs");
 
     let mbtiContent = "";
     let poseContent = "";
