@@ -20,6 +20,7 @@
 - `docs/guide.md` 웹앱 안내 문서 초안 작성 및 시스템 통합 편입.
 - 글로벌 페이지 상태 관리(Global Auth Guard) 확장으로 유저 정보를 localStorage 기반으로 각 페이지와 메뉴에 안전하게 전달 및 공유(아바타 수 증대).
 - 2막(Phase 02): `ai-pose-game` 제작을 위한 포즈 게임 로직의 홈페이지 진입 경로 및 위젯 라우터 매핑 완료.
+- **CI/CD 파이프라인(GitHub Actions) 연동**: `next.config.ts`의 정적 파일 빌드(`output: 'export'`) 설정을 추가하고, 깃허브 `main` 브랜치 푸시 시 자동으로 GitHub Pages에 배포되는 `deploy.yml` 워크플로우를 신설 적용.
 
 ---
 **작성자**: 서기 (Scribe)
