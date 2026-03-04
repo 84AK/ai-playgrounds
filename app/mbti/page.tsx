@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { APPS_SCRIPT_URL } from "../constants";
 
 export default function MBTIMaker() {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState("planning");
     const [previewIndex, setPreviewIndex] = useState(0);
     const [isPreviewFinished, setIsPreviewFinished] = useState(false);
@@ -944,7 +946,7 @@ ISTJ,완벽한 기록술사,매뉴얼대로 움직이는 정확함,책임감이 
                         <button
                             onClick={async () => {
                                 if (isSaved) {
-                                    window.location.href = `/showcase`;
+                                    router.push('/showcase');
                                     return;
                                 }
 
@@ -972,7 +974,7 @@ ISTJ,완벽한 기록술사,매뉴얼대로 움직이는 정확함,책임감이 
                                     setIsSaved(true);
                                     showCustomToast("데이터가 안전하게 저장되었습니다! 전시관으로 이동합니다.");
                                     setTimeout(() => {
-                                        window.location.href = `/showcase`;
+                                        router.push('/showcase');
                                     }, 1500);
                                 } catch (err) {
                                     console.error("Data transfer failed:", err);
