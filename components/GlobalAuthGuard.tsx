@@ -298,12 +298,17 @@ export default function GlobalAuthGuard() {
 
                 {/* 에러/알림 팝업 모달 */}
                 {alertMessage && (
-                    <div className="absolute inset-0 bg-background/90 backdrop-blur-sm z-[200] flex items-center justify-center rounded-3xl animate-in fade-in duration-200">
-                        <div className="p-6 text-center space-y-6 w-full max-w-[80%]">
-                            <h3 className="text-lg font-bold break-keep">{alertMessage}</h3>
+                    <div className="absolute inset-0 bg-background/60 backdrop-blur-[2px] z-[200] flex items-center justify-center rounded-[2.5rem] animate-in fade-in duration-200">
+                        <div className="bg-card/90 border border-white/10 p-8 rounded-3xl shadow-2xl text-center space-y-6 w-[85%] max-w-xs transform animate-in zoom-in-95 duration-200">
+                            <div className="space-y-2">
+                                <div className="text-3xl">⚠️</div>
+                                <h3 className="text-base font-bold break-keep leading-relaxed text-foreground">
+                                    {alertMessage}
+                                </h3>
+                            </div>
                             <button
                                 onClick={() => setAlertMessage("")}
-                                className="w-full px-4 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 font-bold transition-colors"
+                                className="inline-flex items-center justify-center px-8 py-2.5 rounded-full bg-primary text-white hover:bg-primary/90 font-black text-sm transition-all hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
                             >
                                 확인
                             </button>
