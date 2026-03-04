@@ -5,6 +5,15 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import UploadHomework from "./UploadHomework";
 
+export async function generateStaticParams() {
+    return [
+        { weekId: "1" },
+        { weekId: "2" },
+        { weekId: "3" },
+        { weekId: "4" },
+    ];
+}
+
 export default async function PoseCoursePage(props: { params: Promise<{ weekId: string }> | { weekId: string } }) {
     // Resolve params for Next 15 compatibility
     const params = await (props.params instanceof Promise ? props.params : Promise.resolve(props.params));
