@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
@@ -54,9 +55,9 @@ export default function RootLayout({
             </div>
 
             <div className="flex gap-10 text-sm font-black uppercase tracking-widest text-muted-foreground">
-              <a href="/curriculum" className="hover:text-primary transition-colors cursor-pointer">Curriculum</a>
-              <a href="/showcase" className="hover:text-primary transition-colors cursor-pointer">Showcase</a>
-              <a href="/guide" className="hover:text-primary transition-colors cursor-pointer">Guide</a>
+              <Link href="/curriculum" className="hover:text-primary transition-colors cursor-pointer">Curriculum</Link>
+              <Link href="/showcase" className="hover:text-primary transition-colors cursor-pointer">Showcase</Link>
+              <Link href="/guide" className="hover:text-primary transition-colors cursor-pointer">Guide</Link>
             </div>
           </div>
         </footer>
