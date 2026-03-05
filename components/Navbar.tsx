@@ -19,10 +19,26 @@ export default function Navbar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("lab_user_profile");
-    if (saved) {
-      setProfile(JSON.parse(saved));
-    }
+    const syncProfile = () => {
+      const saved = localStorage.getItem("lab_user_profile");
+      if (!saved) {
+        setProfile(null);
+        return;
+      }
+      try {
+        setProfile(JSON.parse(saved));
+      } catch {
+        setProfile(null);
+      }
+    };
+
+    syncProfile();
+    window.addEventListener("auth:changed", syncProfile);
+    window.addEventListener("storage", syncProfile);
+    return () => {
+      window.removeEventListener("auth:changed", syncProfile);
+      window.removeEventListener("storage", syncProfile);
+    };
   }, []);
 
   return (

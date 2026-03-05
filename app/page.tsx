@@ -50,14 +50,105 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    const refreshFromLocalProfile = () => {
+      const saved = localStorage.getItem("lab_user_profile");
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as UserProfile;
+      setProfile(parsed);
+      fetchUserProgress(parsed.name);
+    };
+
+    const handleMbtiSaved = () => {
+      refreshFromLocalProfile();
+    };
+
+    const handleFocus = () => {
+      refreshFromLocalProfile();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshFromLocalProfile();
+      }
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === "mbti_week0_force_refresh") {
+        refreshFromLocalProfile();
+      }
+    };
+
+    window.addEventListener("mbti:save-complete", handleMbtiSaved);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("mbti:save-complete", handleMbtiSaved);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, []);
+
+  const hasMbtiMakerSaveRecord = async (userName: string) => {
+    const readTextField = (row: unknown, keyA: string, keyB: string) => {
+      if (!row || typeof row !== "object") return "";
+      const record = row as Record<string, unknown>;
+      return String(record[keyA] ?? record[keyB] ?? "").trim();
+    };
+
+    try {
+      const response = await fetch(`${APPS_SCRIPT_URL}?action=getAllMbtiData`);
+      const result = await response.json();
+
+      const normalizedName = userName.trim();
+      if (!normalizedName) return false;
+
+      // 최신 응답 포맷: { status, data: { questions, showcase_links } }
+      if (result?.status === "success" && result?.data) {
+        const questionRows = Array.isArray(result.data.questions) ? result.data.questions : [];
+        const hasQuestionRecord = questionRows.some((item: unknown) => {
+          const author = readTextField(item, "Author", "author");
+          return author === normalizedName;
+        });
+        if (hasQuestionRecord) return true;
+
+        const showcaseRows = Array.isArray(result.data.showcase_links) ? result.data.showcase_links : [];
+        return showcaseRows.some((item: unknown) => {
+          const author = readTextField(item, "Author", "author");
+          const url = readTextField(item, "Url", "url");
+          return author === normalizedName && url.includes("/mbti/play?author=");
+        });
+      }
+
+      // 구버전 응답 포맷: 배열
+      if (Array.isArray(result)) {
+        return result.some((item: unknown) => {
+          const author = readTextField(item, "author", "Author");
+          return author === normalizedName;
+        });
+      }
+    } catch (err) {
+      console.error("Failed to verify MBTI week0 by showcase data", err);
+    }
+    return false;
+  };
+
   const fetchUserProgress = async (userName: string) => {
     setIsLoadingProgress(true);
     try {
       const response = await fetch(`${APPS_SCRIPT_URL}?action=getProgress&user_id=${encodeURIComponent(userName)}`);
       const result = await response.json();
       if (result && result.data) {
+        let isMbtiWeek0Completed = Boolean(result.data.mbti_week0);
+        if (!isMbtiWeek0Completed) {
+          isMbtiWeek0Completed = await hasMbtiMakerSaveRecord(userName);
+        }
+
         setMbtiProgress([
-          result.data.mbti_week0 || false, // Week 0 might not exist yet
+          isMbtiWeek0Completed,
           result.data.mbti_week1,
           result.data.mbti_week2,
           result.data.mbti_week3,

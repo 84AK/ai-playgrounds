@@ -72,6 +72,33 @@ export default function GlobalAuthGuard() {
         checkUserValidity();
     }, []);
 
+    useEffect(() => {
+        const syncAuthState = () => {
+            const savedData = localStorage.getItem("lab_user_profile");
+            if (!savedData) {
+                setStep("login");
+                return;
+            }
+            try {
+                const parsed = JSON.parse(savedData);
+                if (parsed?.name && parsed?.school && parsed?.password && parsed?.avatar) {
+                    setStep("authenticated");
+                } else {
+                    setStep("login");
+                }
+            } catch {
+                setStep("login");
+            }
+        };
+
+        window.addEventListener("auth:changed", syncAuthState);
+        window.addEventListener("storage", syncAuthState);
+        return () => {
+            window.removeEventListener("auth:changed", syncAuthState);
+            window.removeEventListener("storage", syncAuthState);
+        };
+    }, []);
+
     if (isMounting || step === "authenticated") {
         return null;
     }
@@ -103,7 +130,8 @@ export default function GlobalAuthGuard() {
                     localStorage.setItem("lab_user_profile", JSON.stringify(profile));
                     localStorage.setItem("lab_nickname", profile.name);
                     setStep("authenticated");
-                    window.location.reload();
+                    window.dispatchEvent(new Event("auth:changed"));
+                    router.refresh();
                 } else {
                     setAlertMessage("비밀번호가 일치하지 않습니다.\n(끝에 띄어쓰기가 포함되었거나, 첫 글자가 대문자로 입력되지 않았는지 확인해 주세요!)");
                 }
@@ -158,7 +186,8 @@ export default function GlobalAuthGuard() {
             localStorage.setItem("lab_user_profile", JSON.stringify(payload));
             localStorage.setItem("lab_nickname", payload.name);
             setStep("authenticated");
-            window.location.reload();
+            window.dispatchEvent(new Event("auth:changed"));
+            router.refresh();
         } catch (error) {
             console.error(error);
             setAlertMessage("등록 중 서버 연결에 실패했습니다.");
@@ -168,8 +197,8 @@ export default function GlobalAuthGuard() {
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-xl p-4">
-            <div className="bg-card w-full max-w-md p-8 rounded-3xl shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-xl p-4 text-foreground">
+            <div className="bg-card text-foreground w-full max-w-md p-8 rounded-3xl shadow-2xl border border-white/10 animate-in fade-in zoom-in duration-300">
 
                 {step === "login" && (
                     <form onSubmit={handleLoginSubmit} className="space-y-6">
@@ -179,7 +208,7 @@ export default function GlobalAuthGuard() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                                 </svg>
                             </div>
-                            <h2 className="text-2xl font-bold">
+                            <h2 className="text-2xl font-bold text-foreground">
                                 {isLoginMode ? "AI 연구소 로그인" : "AI 연구소 시작하기"}
                             </h2>
                             <p className="text-sm text-muted-foreground">
@@ -189,11 +218,11 @@ export default function GlobalAuthGuard() {
 
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">이름 (실명)</label>
+                                <label className="text-sm font-medium text-foreground">이름 (실명)</label>
                                 <input
                                     type="text"
                                     required
-                                    className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                    className="w-full bg-background/50 text-foreground placeholder:text-muted-foreground border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                                     placeholder="홍길동"
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -202,11 +231,11 @@ export default function GlobalAuthGuard() {
 
                             {!isLoginMode && (
                                 <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                    <label className="text-sm font-medium">소속 학교</label>
+                                    <label className="text-sm font-medium text-foreground">소속 학교</label>
                                     <input
                                         type="text"
                                         required={!isLoginMode}
-                                        className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                        className="w-full bg-background/50 text-foreground placeholder:text-muted-foreground border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                                         placeholder="ㅇㅇ고등학교"
                                         value={formData.school}
                                         onChange={(e) => setFormData({ ...formData, school: e.target.value })}
@@ -215,12 +244,12 @@ export default function GlobalAuthGuard() {
                             )}
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">비밀번호 {isLoginMode ? "입력" : "설정"}</label>
+                                <label className="text-sm font-medium text-foreground">비밀번호 {isLoginMode ? "입력" : "설정"}</label>
                                 <div className="relative">
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         required
-                                        className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                        className="w-full bg-background/50 text-foreground placeholder:text-muted-foreground border border-white/10 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
                                         placeholder={isLoginMode ? "비밀번호" : "기억하기 쉬운 비밀번호"}
                                         value={formData.password}
                                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -271,7 +300,7 @@ export default function GlobalAuthGuard() {
                 {step === "avatar" && (
                     <div className="space-y-8 animate-in slide-in-from-right-8 duration-300">
                         <div className="text-center space-y-2">
-                            <h2 className="text-2xl font-bold">캐릭터 선택</h2>
+                            <h2 className="text-2xl font-bold text-foreground">캐릭터 선택</h2>
                             <p className="text-sm text-muted-foreground">연구소에서 활동할 내 캐릭터를 골라주세요!</p>
                         </div>
 

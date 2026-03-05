@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen relative overflow-x-hidden`}
+        className={`dark ${geistSans.variable} ${geistMono.variable} antialiased min-h-screen relative overflow-x-hidden`}
       >
         <GlobalAuthGuard />
 

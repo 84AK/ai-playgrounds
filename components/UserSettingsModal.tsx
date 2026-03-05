@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { UserProfile } from "./GlobalAuthGuard";
 import { APPS_SCRIPT_URL } from "@/app/constants";
 
@@ -12,6 +13,7 @@ interface Props {
 const AVATARS = ["🐶", "🐱", "🐰", "🦊", "🐻", "🐼", "🦁", "🐯", "🐨", "🐸", "🐹", "🐵"];
 
 export default function UserSettingsModal({ isOpen, onClose }: Props) {
+    const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -87,7 +89,9 @@ export default function UserSettingsModal({ isOpen, onClose }: Props) {
             localStorage.setItem("lab_nickname", newProfile.name);
 
             alert("정보가 수정되었습니다.");
-            window.location.reload();
+            window.dispatchEvent(new Event("auth:changed"));
+            onClose();
+            router.refresh();
         } catch (error) {
             console.error("Update failed", error);
             setErrorText("서버 통신 중 오류가 발생했습니다.");
@@ -248,7 +252,10 @@ export default function UserSettingsModal({ isOpen, onClose }: Props) {
                                     onClick={() => {
                                         localStorage.removeItem("lab_user_profile");
                                         localStorage.removeItem("lab_nickname");
-                                        window.location.reload();
+                                        window.dispatchEvent(new Event("auth:changed"));
+                                        setShowLogoutConfirm(false);
+                                        onClose();
+                                        router.refresh();
                                     }}
                                     className="flex-1 px-4 py-3 rounded-xl bg-destructive text-white hover:bg-destructive/90 font-bold transition-colors"
                                 >

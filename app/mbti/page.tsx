@@ -971,6 +971,15 @@ ISTJ,완벽한 기록술사,매뉴얼대로 움직이는 정확함,책임감이 
                                             results: results
                                         })
                                     });
+
+                                    const syncPayload = {
+                                        userName: authorName,
+                                        timestamp: Date.now()
+                                    };
+                                    localStorage.setItem("mbti_week0_last_saved", JSON.stringify(syncPayload));
+                                    localStorage.setItem("mbti_week0_force_refresh", String(syncPayload.timestamp));
+                                    window.dispatchEvent(new CustomEvent("mbti:save-complete", { detail: syncPayload }));
+
                                     setIsSaved(true);
                                     showCustomToast("데이터가 안전하게 저장되었습니다! 전시관으로 이동합니다.");
                                     setTimeout(() => {
