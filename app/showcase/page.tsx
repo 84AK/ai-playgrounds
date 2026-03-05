@@ -8,6 +8,8 @@ export default function Showcase() {
     const [projects, setProjects] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filter, setFilter] = useState("all");
+    const [dateFilter, setDateFilter] = useState("all");
+    const [selectedDate, setSelectedDate] = useState("");
     const [likedProjects, setLikedProjects] = useState<Record<number, boolean>>({});
 
     // 커스텀 쇼케이스 등록용 상태
@@ -67,6 +69,92 @@ export default function Showcase() {
         // 삭제 예정이므로 빈 함수
     };
 
+    const toDateKey = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    };
+
+    const parseTimestamp = (value: unknown): Date | null => {
+        if (!value) return null;
+        if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+        const raw = String(value).trim();
+        if (!raw) return null;
+
+        const direct = new Date(raw);
+        if (!Number.isNaN(direct.getTime())) return direct;
+
+        // Google Sheet의 "2026. 3. 5 오후 2:14:03" 형태 대응
+        const normalized = raw.replace(/\./g, "-").replace(/\s+/g, " ").trim();
+        const koreanMatch = normalized.match(
+            /^(\d{4})-(\d{1,2})-(\d{1,2})\s*(오전|오후)?\s*(\d{1,2})?:(\d{1,2})(?::(\d{1,2}))?$/
+        );
+
+        if (koreanMatch) {
+            const year = Number(koreanMatch[1]);
+            const month = Number(koreanMatch[2]) - 1;
+            const day = Number(koreanMatch[3]);
+            const ampm = koreanMatch[4];
+            let hour = Number(koreanMatch[5] || 0);
+            const minute = Number(koreanMatch[6] || 0);
+            const second = Number(koreanMatch[7] || 0);
+
+            if (ampm === "오후" && hour < 12) hour += 12;
+            if (ampm === "오전" && hour === 12) hour = 0;
+
+            const parsed = new Date(year, month, day, hour, minute, second);
+            if (!Number.isNaN(parsed.getTime())) return parsed;
+        }
+
+        const dateOnly = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        if (dateOnly) {
+            const parsed = new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+            if (!Number.isNaN(parsed.getTime())) return parsed;
+        }
+
+        return null;
+    };
+
+    const normalizeCategory = (raw: unknown): "MBTI" | "GAME" | "CUSTOM" => {
+        const value = String(raw || "").trim().toUpperCase();
+        if (!value) return "CUSTOM";
+        if (value.includes("MBTI")) return "MBTI";
+        if (value.includes("GAME") || value.includes("POSE")) return "GAME";
+        if (value.includes("CUSTOM") || value.includes("일반") || value.includes("커스텀")) return "CUSTOM";
+        return "CUSTOM";
+    };
+
+    const getCategoryText = (type: string) => {
+        if (type === "MBTI") return "MBTI 결과물";
+        if (type === "GAME") return "AI 포즈 게임";
+        return "일반개발/커스텀앱";
+    };
+
+    const isMbtiBuilderOrigin = (item: { source?: string; link?: string }) => {
+        const link = String(item.link || "");
+        return item.source === "MBTI_BUILDER" || link.includes("/mbti/play?author=");
+    };
+
+    const getDescriptionText = (item: { source?: string; description?: string; displayType?: string; type?: string; link?: string }) => {
+        if (isMbtiBuilderOrigin(item)) {
+            const typeName = item.displayType || "MBTI";
+            return `0주차 실습으로 만들어진 MBTI 작품입니다. (${typeName} 유형 테스트)`;
+        }
+
+        const savedDescription = (item.description || "").trim();
+        if (savedDescription) return savedDescription;
+
+        if (item.type === "CUSTOM") {
+            return "작성자가 앱 한 줄 소개를 아직 입력하지 않았습니다.";
+        }
+        if (item.type === "GAME") {
+            return "AI 포즈 게임 실습 결과물입니다.";
+        }
+        return "MBTI 실습 결과물입니다.";
+    };
+
     // 구글 시트 데이터 로드
     useEffect(() => {
         async function loadData() {
@@ -90,7 +178,11 @@ export default function Showcase() {
                             if (!uniqueMap.has(key)) {
                                 uniqueMap.set(key, {
                                     author, title: `${author} 연구원의 MBTI 테스트`,
-                                    type: "MBTI", displayType: type, link: `/mbti/play?author=${encodeURIComponent(author)}`
+                                    type: "CUSTOM",
+                                    displayType: type,
+                                    source: "MBTI_BUILDER",
+                                    link: `/mbti/play?author=${encodeURIComponent(author)}`,
+                                    description: ""
                                 });
                             }
                         });
@@ -100,11 +192,16 @@ export default function Showcase() {
                     // 커스텀 링크 파싱 (API가 data 객체 안에 showcase_links로 내려줌)
                     if (result.data.showcase_links) {
                         customProjects = result.data.showcase_links.map((item: any) => ({
+                            ...(String(item.Url || item.url || "").includes("/mbti/play?author=")
+                                ? { type: "CUSTOM", source: "MBTI_BUILDER" }
+                                : {
+                                    type: normalizeCategory(item.Type || item.type || item.Category || item.category),
+                                    source: "SHOWCASE_LINK"
+                                }),
                             timestamp: item.Timestamp || item.timestamp, // 고유 식별자 추가
                             author: item.Author || item.author || "익명",
                             title: item.Title || item.title || "무제 프로젝트",
                             description: item.Description || item.description || "",
-                            type: item.Type || item.type || "CUSTOM",
                             displayType: "WEB",
                             link: item.Url || item.url || "#",
                             password: String(item.Password || item.password || "") // 권한 확인용
@@ -129,6 +226,7 @@ export default function Showcase() {
                 const formatted = uniqueData.map((item: any, idx: number) => {
                     let displayType = item.displayType || "APP";
                     if (displayType.length > 15 || displayType.includes('{') || displayType.includes('[')) displayType = "APP";
+                    const createdAt = parseTimestamp(item.timestamp);
 
                     // 서버에서 아바타 정보(users 객체)를 넘겨주면 활용, 없으면 랜덤 캐릭터
                     const userAvatar = result.data?.users?.[item.author];
@@ -140,9 +238,12 @@ export default function Showcase() {
                         title: item.title,
                         author: item.author,
                         type: item.type,
-                        description: item.description,
+                        description: getDescriptionText(item),
                         link: item.link,
                         password: item.password,
+                        source: item.source || "SHOWCASE_LINK",
+                        createdAt,
+                        createdDateKey: createdAt ? toDateKey(createdAt) : "",
                         tags: ["AI", item.type, displayType],
                         image: imageOrEmoji
                     };
@@ -158,7 +259,37 @@ export default function Showcase() {
         loadData();
     }, []);
 
-    const filteredProjects = filter === "all" ? projects : filter === "MBTI" ? projects.filter(p => p.type === "MBTI") : projects.filter(p => p.type !== "MBTI");
+    const typeFilteredProjects = filter === "all" ? projects : projects.filter((p) => p.type === filter);
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sevenDaysStart = new Date(todayStart);
+    sevenDaysStart.setDate(sevenDaysStart.getDate() - 6);
+    const thirtyDaysStart = new Date(todayStart);
+    thirtyDaysStart.setDate(thirtyDaysStart.getDate() - 29);
+
+    const filteredProjects = typeFilteredProjects.filter((project) => {
+        const createdAt: Date | null = project.createdAt;
+        if (dateFilter === "all") return true;
+        if (!createdAt) return false;
+
+        const createdDate = new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate());
+
+        if (dateFilter === "today") {
+            return createdDate.getTime() === todayStart.getTime();
+        }
+        if (dateFilter === "7days") {
+            return createdDate >= sevenDaysStart && createdDate <= todayStart;
+        }
+        if (dateFilter === "30days") {
+            return createdDate >= thirtyDaysStart && createdDate <= todayStart;
+        }
+        if (dateFilter === "exact") {
+            return selectedDate ? project.createdDateKey === selectedDate : true;
+        }
+
+        return true;
+    });
 
     const submitProject = async () => {
         if (!formData.author || !formData.title || !formData.url || !formData.password) {
@@ -353,8 +484,8 @@ export default function Showcase() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex justify-center gap-3">
-                {["all", "MBTI", "GAME"].map((f) => (
+            <div className="flex justify-center gap-3 flex-wrap">
+                {["all", "MBTI", "GAME", "CUSTOM"].map((f) => (
                     <button
                         key={f}
                         onClick={() => setFilter(f)}
@@ -363,9 +494,33 @@ export default function Showcase() {
                             : "bg-secondary/50 hover:bg-muted text-muted-foreground border border-transparent hover:border-border"
                             }`}
                     >
-                        {f === "all" ? "전체 보기" : f === "MBTI" ? "🎨 MBTI" : "🎮 Game"}
+                        {f === "all" ? "전체 보기" : f === "MBTI" ? "🧪 MBTI" : f === "GAME" ? "🎮 GAME" : "💻 CUSTOM"}
                     </button>
                 ))}
+            </div>
+            <div className="flex justify-center items-center gap-3 flex-wrap">
+                <select
+                    value={dateFilter}
+                    onChange={(e) => {
+                        setDateFilter(e.target.value);
+                        if (e.target.value !== "exact") setSelectedDate("");
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-secondary/50 border border-border text-sm font-bold focus:outline-none focus:border-primary"
+                >
+                    <option value="all">날짜 전체</option>
+                    <option value="today">오늘</option>
+                    <option value="7days">최근 7일</option>
+                    <option value="30days">최근 30일</option>
+                    <option value="exact">날짜 직접 선택</option>
+                </select>
+                {dateFilter === "exact" && (
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="px-4 py-2.5 rounded-xl bg-secondary/50 border border-border text-sm font-bold focus:outline-none focus:border-primary"
+                    />
+                )}
             </div>
 
             {/* Gallery Grid */}
@@ -429,7 +584,12 @@ export default function Showcase() {
                                 </div>
                                 <div className="p-6 pt-2 space-y-4 flex-1 flex flex-col">
                                     <div className="flex gap-2 flex-wrap mb-1">
-                                        {/* 태그 영역은 사용자 요청에 따라 숨김 처리 */}
+                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${project.type === "MBTI" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" :
+                                            project.type === "GAME" ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
+                                                "bg-primary/10 text-primary border-primary/20"
+                                            }`}>
+                                            {project.type === "MBTI" ? "MBTI TEST" : project.type === "GAME" ? "GAME" : "CUSTOM APP"}
+                                        </span>
                                     </div>
                                     <div className="space-y-1 flex-1">
                                         <h3 className="font-black text-lg tracking-tight group-hover:text-primary transition-colors line-clamp-1 py-1">{project.title}</h3>
@@ -437,6 +597,14 @@ export default function Showcase() {
                                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                                             {project.author} {isCustom ? "개발자" : "연구원"}
                                         </p>
+                                        <p className="text-[11px] text-muted-foreground/80 font-semibold">
+                                            카테고리: {getCategoryText(project.type)}
+                                        </p>
+                                        {project.createdAt && (
+                                            <p className="text-[11px] text-muted-foreground/80 font-semibold">
+                                                등록일: {project.createdDateKey}
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="pt-3 border-t border-border/50">
                                         <div className="w-full text-center py-2.5 rounded-xl bg-secondary group-hover:bg-primary group-hover:text-white text-xs font-black transition-all uppercase tracking-widest shadow-sm group-hover:shadow-primary/30">
@@ -681,14 +849,20 @@ export default function Showcase() {
                                 </div>
                                 <div className="space-y-1">
                                     <div className="flex items-center gap-2 mb-1">
-                                        <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-[10px] font-black uppercase tracking-wider border border-primary/20">
-                                            {activeProject.type === "CUSTOM" ? "CUSTOM APP" : activeProject.type === "MBTI" ? "MBTI TEST" : "GAME"}
+                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${activeProject.type === "MBTI" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" :
+                                            activeProject.type === "GAME" ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
+                                                "bg-primary/10 text-primary border-primary/20"
+                                            }`}>
+                                            {activeProject.type === "MBTI" ? "MBTI TEST" : activeProject.type === "GAME" ? "GAME" : "CUSTOM APP"}
                                         </span>
                                     </div>
                                     <h3 className="text-2xl font-black">{activeProject.title}</h3>
                                     <p className="text-sm font-bold text-muted-foreground flex items-center gap-1.5">
                                         <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                        {activeProject.author} Research Fellow
+                                        {activeProject.author} {activeProject.type === "CUSTOM" ? "개발자" : "연구원"}
+                                    </p>
+                                    <p className="text-xs font-semibold text-muted-foreground/90">
+                                        카테고리: {getCategoryText(activeProject.type)}
                                     </p>
                                 </div>
                             </div>
@@ -701,7 +875,7 @@ export default function Showcase() {
                                 <div className="relative">
                                     <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary/40 rounded-full" />
                                     <p className="text-sm font-medium leading-relaxed bg-secondary/30 p-5 pl-6 rounded-r-xl text-foreground">
-                                        {activeProject.description || "이 작품에 대한 상세 설명이 아직 등록되지 않았습니다."}
+                                        {activeProject.description}
                                     </p>
                                 </div>
                             </div>

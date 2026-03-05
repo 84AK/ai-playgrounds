@@ -32,6 +32,7 @@ function ResultContent() {
 
     const [mbti, setMbti] = useState(MBTI_DETAILS[type as keyof typeof MBTI_DETAILS] || MBTI_DETAILS.ENTP);
     const [showCard, setShowCard] = useState(false);
+    const [isFetching, setIsFetching] = useState(Boolean(author && author !== "AI 연구원"));
 
     useEffect(() => {
         const fetchCustomResults = async () => {
@@ -69,16 +70,32 @@ function ResultContent() {
                 }
             } catch (err) {
                 console.error("Failed to load custom results", err);
+            } finally {
+                setIsFetching(false);
             }
         };
 
         if (author && author !== "AI 연구원") {
             fetchCustomResults();
+        } else {
+            setIsFetching(false);
         }
-
-        const timer = setTimeout(() => setShowCard(true), 500);
-        return () => clearTimeout(timer);
     }, [author, type]);
+
+    useEffect(() => {
+        if (!isFetching) {
+            const timer = setTimeout(() => setShowCard(true), 50);
+            return () => clearTimeout(timer);
+        }
+    }, [isFetching]);
+
+    if (isFetching) {
+        return (
+            <div className="min-h-screen flex items-center justify-center text-primary font-black animate-pulse uppercase tracking-[0.2em]">
+                Analyzing DNA...
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen pt-20 pb-20 px-6 flex flex-col items-center justify-center space-y-12">

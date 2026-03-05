@@ -27,6 +27,7 @@ export default function GlobalAuthGuard() {
     const [isLoading, setIsLoading] = useState(false);
     const [isLoginMode, setIsLoginMode] = useState(true);
     const [alertMessage, setAlertMessage] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
         const checkUserValidity = async () => {
@@ -104,7 +105,7 @@ export default function GlobalAuthGuard() {
                     setStep("authenticated");
                     window.location.reload();
                 } else {
-                    setAlertMessage("비밀번호가 일치하지 않습니다.");
+                    setAlertMessage("비밀번호가 일치하지 않습니다.\n(끝에 띄어쓰기가 포함되었거나, 첫 글자가 대문자로 입력되지 않았는지 확인해 주세요!)");
                 }
             } else {
                 // User not found
@@ -215,14 +216,27 @@ export default function GlobalAuthGuard() {
 
                             <div className="space-y-2">
                                 <label className="text-sm font-medium">비밀번호 {isLoginMode ? "입력" : "설정"}</label>
-                                <input
-                                    type="password"
-                                    required
-                                    className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                                    placeholder={isLoginMode ? "비밀번호" : "기억하기 쉬운 비밀번호"}
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showPassword ? "text" : "password"}
+                                        required
+                                        className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                        placeholder={isLoginMode ? "비밀번호" : "기억하기 쉬운 비밀번호"}
+                                        value={formData.password}
+                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
+                                    >
+                                        {showPassword ? (
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" y1="2" x2="22" y2="22" /></svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                                        )}
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
