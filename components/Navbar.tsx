@@ -8,7 +8,7 @@ import useLocalProfile from "@/hooks/useLocalProfile";
 
 const navItems = [
   { name: "🏠 홈", path: "/" },
-  { name: "🚀 My Study Lab", path: "/", hash: "#my-study-lab" },
+  { name: "🚀 My Study Lab", path: "/study-lab" },
   { name: "🧪 MBTI 메이커", path: "/mbti" },
   { name: "🎮 AI 포즈 게임", path: "/game" },
   { name: "✨ 쇼케이스", path: "/showcase" },
@@ -20,18 +20,10 @@ export default function Navbar() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [currentHash, setCurrentHash] = useState("");
   const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
-    setCurrentHash(window.location.hash);
-  }, []);
-
-  useEffect(() => {
-    const syncHash = () => setCurrentHash(window.location.hash);
-    window.addEventListener("hashchange", syncHash);
-    return () => window.removeEventListener("hashchange", syncHash);
   }, []);
 
   useEffect(() => {
@@ -67,13 +59,10 @@ export default function Navbar() {
           </Link>
           <ul className="hidden md:flex items-center gap-2 p-1 bg-secondary/50 rounded-2xl border border-white/5">
             {navItems.map((item) => (
-              <li key={`${item.path}${item.hash ?? ""}`}>
+              <li key={item.path}>
                 <Link
-                  href={item.hash ? `${item.path}${item.hash}` : item.path}
-                  className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${
-                    (item.hash
-                      ? pathname === item.path && currentHash === item.hash
-                      : pathname === item.path && currentHash !== "#my-study-lab")
+                  href={item.path}
+                  className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${pathname === item.path
                     ? "bg-white dark:bg-primary shadow-lg text-primary dark:text-white"
                     : "text-muted-foreground hover:text-foreground"
                     }`}
@@ -118,13 +107,11 @@ export default function Navbar() {
           <div className="md:hidden mt-3 glass rounded-[1.75rem] border border-white/10 p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <ul className="space-y-2">
               {navItems.map((item) => {
-                const isActive = item.hash
-                  ? pathname === item.path && currentHash === item.hash
-                  : pathname === item.path && currentHash !== "#my-study-lab";
+                const isActive = pathname === item.path;
                 return (
-                  <li key={`${item.path}${item.hash ?? ""}`}>
+                  <li key={item.path}>
                     <Link
-                      href={item.hash ? `${item.path}${item.hash}` : item.path}
+                      href={item.path}
                       className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
                         isActive
                           ? "bg-white text-primary"
