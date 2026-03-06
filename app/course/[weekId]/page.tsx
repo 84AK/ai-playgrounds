@@ -1,9 +1,7 @@
-import fs from "fs/promises";
-import path from "path";
 import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import MarkdownContent from "../../../components/MarkdownContent";
 import UploadHomework from "./UploadHomework";
+import { getCourseContent } from "@/lib/courseContent";
 
 export async function generateStaticParams() {
     return [
@@ -22,7 +20,6 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
     const mbtiWeekNum = parseInt(weekId);
     const isValidWeek = !isNaN(mbtiWeekNum) && mbtiWeekNum >= 1 && mbtiWeekNum <= 4;
 
-    const filePath = path.join(process.cwd(), "Docs", `mbti_week${weekId}.md`);
     let content = "";
     let errorLoading = false;
 
@@ -31,17 +28,20 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
         content = `# 유효하지 않은 주차입니다.\n\n정상적인 커리큘럼 범위를 벗어났습니다. (1~4주차만 지원)`;
     } else {
         try {
-            content = await fs.readFile(filePath, "utf-8");
+            const result = await getCourseContent("MBTI", mbtiWeekNum);
+            content = result.content;
         } catch (err) {
             errorLoading = true;
-            content = `# 진행 중인 문서가 없습니다.\n\n해당 주차의 학습 안내 문서(${filePath})를 찾을 수 없습니다.`;
+            content = `# 진행 중인 문서가 없습니다.\n\n해당 주차의 학습 안내 문서를 찾을 수 없습니다.`;
         }
     }
 
     return (
-        <div className="min-h-screen bg-background text-foreground pb-20">
+        <div className="relative min-h-screen overflow-hidden bg-background text-foreground pb-20">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-[260px] bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.18),transparent_34%)]" />
+
             {/* Navigation Header */}
-            <header className="fixed top-0 inset-x-0 h-16 bg-background/80 backdrop-blur-md border-b border-border z-40 flex items-center px-6">
+            <header className="sticky top-0 inset-x-0 z-40 flex h-16 items-center border-b border-white/6 bg-background/70 px-6 backdrop-blur-xl">
                 <div className="max-w-4xl mx-auto w-full flex items-center justify-between">
                     <Link href="/" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors flex items-center gap-2">
                         ← My Study Lab 돌아가기
@@ -54,15 +54,28 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
                 </div>
             </header>
 
-            <div className="max-w-4xl mx-auto px-6 pt-32 space-y-12">
-                {/* Markdown Documentation Content */}
-                <div className="prose prose-invert lg:prose-xl max-w-none prose-headings:font-black prose-a:text-primary prose-pre:bg-secondary/50 prose-pre:border prose-pre:border-border prose-img:rounded-2xl">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
-                </div>
+            <div className="relative mx-auto max-w-5xl px-6 pt-10">
+                <section className="pb-12">
+                    <div className="max-w-3xl">
+                        <p className="text-[11px] font-black uppercase tracking-[0.4em] text-primary/70">MBTI Week {weekId}</p>
+                        <div className="mt-5 flex items-start gap-4">
+                            <div className="mt-1 h-16 w-1 rounded-full bg-gradient-to-b from-primary via-primary/40 to-transparent" />
+                            <div>
+                                <h1 className="text-[clamp(2.2rem,4vw,4.25rem)] font-black tracking-tight text-white">
+                                    {mbtiWeekNum}주차 학습 가이드
+                                </h1>
+                                <p className="mt-4 max-w-2xl text-[15px] leading-8 text-white/62">
+                                    이번 주 학습 목표와 실습 흐름을 먼저 읽고, 아래에서 결과물을 제출할 수 있도록 문서를 재구성했습니다.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-                {/* Homework Upload Form Container */}
+                <MarkdownContent content={content} className="max-w-3xl" />
+
                 {!errorLoading && (
-                    <div className="mt-20 pt-10 border-t border-border">
+                    <div className="mt-20 max-w-3xl">
                         <UploadHomework weekId={mbtiWeekNum} />
                     </div>
                 )}

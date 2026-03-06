@@ -1,13 +1,13 @@
 import type { NextConfig } from "next";
 
-const isProd = process.env.NODE_ENV === "production";
+const enableStaticExport = process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  reactCompiler: true,
-  output: "export",
-  basePath: isProd ? "/ai-playgrounds" : undefined,
-  assetPrefix: isProd ? "/ai-playgrounds" : undefined,
+  reactCompiler: false,
+  // Static export and server features (cookies, route handlers) cannot coexist.
+  output: enableStaticExport ? "export" : undefined,
+  basePath: enableStaticExport ? "/ai-playgrounds" : undefined,
+  assetPrefix: enableStaticExport ? "/ai-playgrounds" : undefined,
   images: {
     unoptimized: true,
   },

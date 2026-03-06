@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { APPS_SCRIPT_URL } from "../constants";
+import useLocalProfile from "@/hooks/useLocalProfile";
 
 export default function MBTIMaker() {
     const router = useRouter();
+    const profile = useLocalProfile();
     const [activeTab, setActiveTab] = useState("planning");
     const [previewIndex, setPreviewIndex] = useState(0);
     const [isPreviewFinished, setIsPreviewFinished] = useState(false);
@@ -29,17 +31,9 @@ export default function MBTIMaker() {
 
     // 로그인된 유저 정보로 폼 자동 완성
     useEffect(() => {
-        const savedData = localStorage.getItem("lab_user_profile");
-        if (savedData) {
-            try {
-                const parsed = JSON.parse(savedData);
-                if (parsed.name) setAuthorName(parsed.name);
-                if (parsed.password) setPassword(parsed.password);
-            } catch (e) {
-                console.error("Failed to parse user profile:", e);
-            }
-        }
-    }, []);
+        if (profile?.name) setAuthorName(profile.name);
+        if (profile?.password) setPassword(profile.password);
+    }, [profile]);
 
     const showCustomToast = (msg: string) => {
         setToastMessage(msg);

@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { APPS_SCRIPT_URL } from "./constants";
-import type { UserProfile } from "@/components/GlobalAuthGuard";
+import useLocalProfile from "@/hooks/useLocalProfile";
 
 export default function Home() {
   const router = useRouter();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const profile = useLocalProfile();
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
 
   const [mbtiProgress, setMbtiProgress] = useState([false, false, false, false, false]);
@@ -42,40 +42,32 @@ export default function Home() {
   ];
 
   useEffect(() => {
-    const saved = localStorage.getItem("lab_user_profile");
-    if (saved) {
-      const parsed = JSON.parse(saved) as UserProfile;
-      setProfile(parsed);
-      fetchUserProgress(parsed.name);
-    }
-  }, []);
+    if (!profile?.name) return;
+    fetchUserProgress(profile.name);
+  }, [profile]);
 
   useEffect(() => {
-    const refreshFromLocalProfile = () => {
-      const saved = localStorage.getItem("lab_user_profile");
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as UserProfile;
-      setProfile(parsed);
-      fetchUserProgress(parsed.name);
-    };
-
     const handleMbtiSaved = () => {
-      refreshFromLocalProfile();
+      if (profile?.name) {
+        fetchUserProgress(profile.name);
+      }
     };
 
     const handleFocus = () => {
-      refreshFromLocalProfile();
+      if (profile?.name) {
+        fetchUserProgress(profile.name);
+      }
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        refreshFromLocalProfile();
+      if (document.visibilityState === "visible" && profile?.name) {
+        fetchUserProgress(profile.name);
       }
     };
 
     const handleStorage = (event: StorageEvent) => {
-      if (event.key === "mbti_week0_force_refresh") {
-        refreshFromLocalProfile();
+      if (event.key === "mbti_week0_force_refresh" && profile?.name) {
+        fetchUserProgress(profile.name);
       }
     };
 
@@ -90,7 +82,7 @@ export default function Home() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("storage", handleStorage);
     };
-  }, []);
+  }, [profile]);
 
   const hasMbtiMakerSaveRecord = async (userName: string) => {
     const readTextField = (row: unknown, keyA: string, keyB: string) => {

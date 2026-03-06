@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import type { UserProfile } from "./GlobalAuthGuard";
-import { APPS_SCRIPT_URL } from "@/app/constants";
+import { clearLocalProfile, readLocalProfile, writeLocalProfile } from "@/hooks/useLocalProfile";
+import { fetchUserProfile, updateUser } from "@/lib/appsScriptUsers";
+import type { UserProfile } from "@/types/auth";
 
 interface Props {
     isOpen: boolean;
@@ -13,7 +13,6 @@ interface Props {
 const AVATARS = ["🐶", "🐱", "🐰", "🦊", "🐻", "🐼", "🦁", "🐯", "🐨", "🐸", "🐹", "🐵"];
 
 export default function UserSettingsModal({ isOpen, onClose }: Props) {
-    const router = useRouter();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -33,9 +32,8 @@ export default function UserSettingsModal({ isOpen, onClose }: Props) {
 
     useEffect(() => {
         if (isOpen) {
-            const savedData = localStorage.getItem("lab_user_profile");
-            if (savedData) {
-                const parsed = JSON.parse(savedData) as UserProfile;
+            const parsed = readLocalProfile();
+            if (parsed) {
                 setProfile(parsed);
                 setEditData({ name: parsed.name, school: parsed.school, password: parsed.password || "" });
                 setSelectedAvatar(parsed.avatar);
@@ -73,28 +71,15 @@ export default function UserSettingsModal({ isOpen, onClose }: Props) {
         };
 
         try {
-            await fetch(APPS_SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
-                body: JSON.stringify({
-                    action: "updateUser",
-                    user_id: newProfile.name,
-                    school: newProfile.school,
-                    password: newProfile.password,
-                    avatar: newProfile.avatar
-                })
-            });
-
-            localStorage.setItem("lab_user_profile", JSON.stringify(newProfile));
-            localStorage.setItem("lab_nickname", newProfile.name);
+            await updateUser(newProfile);
+            const verifiedProfile = await fetchUserProfile(newProfile.name);
+            writeLocalProfile(verifiedProfile);
 
             alert("정보가 수정되었습니다.");
-            window.dispatchEvent(new Event("auth:changed"));
             onClose();
-            router.refresh();
         } catch (error) {
             console.error("Update failed", error);
-            setErrorText("서버 통신 중 오류가 발생했습니다.");
+            setErrorText("수정 결과를 확인하지 못했습니다. 앱스 스크립트 배포 상태와 사용자 정보를 확인해주세요.");
         } finally {
             setIsLoading(false);
         }
@@ -250,12 +235,9 @@ export default function UserSettingsModal({ isOpen, onClose }: Props) {
                                 </button>
                                 <button
                                     onClick={() => {
-                                        localStorage.removeItem("lab_user_profile");
-                                        localStorage.removeItem("lab_nickname");
-                                        window.dispatchEvent(new Event("auth:changed"));
+                                        clearLocalProfile();
                                         setShowLogoutConfirm(false);
                                         onClose();
-                                        router.refresh();
                                     }}
                                     className="flex-1 px-4 py-3 rounded-xl bg-destructive text-white hover:bg-destructive/90 font-bold transition-colors"
                                 >

@@ -1,22 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { APPS_SCRIPT_URL } from "../../constants";
-import type { UserProfile } from "@/components/GlobalAuthGuard";
+import { delay, getAppsScriptJson, postAppsScript } from "@/lib/appsScriptClient";
+import { readLocalProfile } from "@/hooks/useLocalProfile";
+import type { UserProfile } from "@/types/auth";
 
 export default function UploadHomework({ weekId }: { weekId: number }) {
     const router = useRouter();
-    const [profile, setProfile] = useState<UserProfile | null>(null);
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [modal, setModal] = useState<{ isOpen: boolean, type: 'success' | 'error', message: string }>({ isOpen: false, type: 'success', message: '' });
-
-    useEffect(() => {
-        const saved = localStorage.getItem("lab_user_profile");
-        if (saved) setProfile(JSON.parse(saved));
-    }, []);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -40,6 +35,8 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
         });
 
     const handleUpload = async () => {
+        const profile: UserProfile | null = readLocalProfile();
+
         if (!profile) {
             setErrorMsg("수강생 등록(로그인)이 필요합니다.");
             return;
@@ -65,42 +62,37 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                 base64Data: base64Data
             };
 
-            await fetch(APPS_SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
-                body: JSON.stringify(payload),
-            });
+            await postAppsScript(payload);
+            await delay(3000);
 
-            // Check successful upload directly via GET
-            setTimeout(async () => {
-                try {
-                    const checkRes = await fetch(`${APPS_SCRIPT_URL}?action=getProgress&user_id=${encodeURIComponent(profile.name)}`);
-                    const checkResult = await checkRes.json();
+            const checkResult = await getAppsScriptJson<{ data?: Record<string, boolean> }>(
+                new URLSearchParams({
+                    action: "getProgress",
+                    user_id: profile.name,
+                })
+            );
 
-                    if (checkResult && checkResult.data && checkResult.data[`pose_week${weekId}`] === true) {
-                        setModal({
-                            isOpen: true,
-                            type: 'success',
-                            message: `✨ 축하합니다! AI 포즈 게임 ${weekId}주차 학습 파일이 제출되었습니다.`
-                        });
-                    } else {
-                        setModal({
-                            isOpen: true,
-                            type: 'error',
-                            message: `⚠️ 업로드 실패: 파일이 전송되지 않았거나, 구글 시트에 진행 상황이 기록되지 않았습니다.\n\n앱스 스크립트를 새로 배포하거나, courseType이 POSE로 올바르게 처리되도록 백엔드가 업데이트되었는지 확인해주세요.`
-                        });
-                    }
-                } catch (e) {
-                    setModal({ isOpen: true, type: 'error', message: '진척도를 검증하는 중 오류가 발생했습니다. 백엔드 주소를 확인해주세요.' });
-                }
-                setIsUploading(false);
-            }, 3000);
-
+            if (checkResult?.data?.[`pose_week${weekId}`] === true) {
+                setModal({
+                    isOpen: true,
+                    type: "success",
+                    message: `✨ 축하합니다! AI 포즈 게임 ${weekId}주차 학습 파일이 제출되었습니다.`,
+                });
+            } else {
+                setModal({
+                    isOpen: true,
+                    type: "error",
+                    message: `⚠️ 업로드 실패: 파일이 전송되지 않았거나, 구글 시트에 진행 상황이 기록되지 않았습니다.\n\n앱스 스크립트를 새로 배포하거나, courseType이 POSE로 올바르게 처리되도록 백엔드가 업데이트되었는지 확인해주세요.`,
+                });
+            }
         } catch (err) {
             console.error(err);
-            setErrorMsg("파일 업로드 중 클라이언트 측 에러가 발생했습니다.");
+            setErrorMsg("파일 업로드 또는 검증 중 오류가 발생했습니다. Apps Script URL과 배포 상태를 확인해주세요.");
             setIsUploading(false);
+            return;
         }
+
+        setIsUploading(false);
     };
 
     const closeModal = () => {
@@ -112,19 +104,21 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
     };
 
     return (
-        <div className="bg-blue-900/10 p-8 rounded-3xl border border-blue-500/30 backdrop-blur-sm relative">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-xl">
+        <section className="relative overflow-hidden rounded-[30px] border border-white/8 bg-white/[0.035] p-8 shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-sm">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/14 via-blue-500/[0.03] to-transparent" />
+            <div className="relative flex items-center gap-3 mb-6">
+                <div className="w-11 h-11 rounded-2xl bg-blue-500/15 flex items-center justify-center text-xl border border-blue-400/20">
                     📤
                 </div>
                 <div>
-                    <h3 className="text-xl font-black">{weekId}주차 과제 제출</h3>
-                    <p className="text-sm text-muted-foreground font-medium">실습한 티처블 머신 모델 링크(.txt)나 코드를 업로드하세요.</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/45">Next Action</p>
+                    <h3 className="mt-1 text-xl font-black">{weekId}주차 과제 제출</h3>
+                    <p className="text-sm text-white/58 font-medium">실습한 티처블 머신 모델 링크(.txt)나 코드를 업로드하세요.</p>
                 </div>
             </div>
 
-            <div className="space-y-4">
-                <div className="border-2 border-dashed border-blue-500/30 p-6 rounded-2xl flex flex-col items-center justify-center gap-4 bg-background/50 hover:bg-background transition-colors relative">
+            <div className="relative space-y-4">
+                <div className="border border-white/10 p-6 rounded-[24px] flex flex-col items-center justify-center gap-4 bg-black/20 hover:bg-black/25 transition-colors relative">
                     <input
                         type="file"
                         onChange={handleFileChange}
@@ -132,12 +126,12 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                         accept=".html,.css,.js,.zip,.json,.md,.txt"
                     />
                     {file ? (
-                        <div className="flex flex-col items-center gap-2 text-blue-500 font-bold">
+                        <div className="flex flex-col items-center gap-2 text-blue-400 font-bold">
                             <span className="text-2xl">📄</span>
                             <span>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center gap-2 text-muted-foreground text-sm">
+                        <div className="flex flex-col items-center gap-2 text-white/60 text-sm">
                             <span className="text-2xl">👇</span>
                             <span>여기를 클릭하거나 파일을 드래그하여 첨부하세요.</span>
                             <span className="text-xs opacity-60">지원 파일: txt, html, css, js, zip 등</span>
@@ -146,13 +140,13 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                 </div>
 
                 {errorMsg && (
-                    <p className="text-destructive text-sm font-bold bg-destructive/10 p-3 rounded-lg">{errorMsg}</p>
+                    <p className="text-destructive text-sm font-bold bg-destructive/10 p-3 rounded-xl border border-destructive/20">{errorMsg}</p>
                 )}
 
                 <button
                     onClick={handleUpload}
                     disabled={isUploading || !file}
-                    className="w-full py-4 bg-blue-600 text-white rounded-xl font-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20"
+                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20"
                 >
                     {isUploading ? (
                         <>
@@ -188,6 +182,6 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                     </div>
                 </div>
             )}
-        </div>
+        </section>
     );
 }

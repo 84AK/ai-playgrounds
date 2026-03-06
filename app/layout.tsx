@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
+import ClientNavbar from "@/components/ClientNavbar";
 import GlobalAuthGuard from "@/components/GlobalAuthGuard";
 
 const geistSans = Geist({
@@ -38,7 +38,7 @@ export default function RootLayout({
           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px] animate-float" style={{ animationDelay: "-2s" }} />
         </div>
 
-        <Navbar />
+        <ClientNavbar />
 
         <main className="pt-12 pb-20 px-6 max-w-7xl mx-auto">
           {children}

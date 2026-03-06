@@ -1,21 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { APPS_SCRIPT_URL } from "../../constants";
+import { delay, getAppsScriptJson, postAppsScript } from "@/lib/appsScriptClient";
 
 export default function UploadHomework({ weekId }: { weekId: number }) {
     const router = useRouter();
-    const [nickname, setNickname] = useState("");
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [modal, setModal] = useState<{ isOpen: boolean, type: 'success' | 'error', message: string }>({ isOpen: false, type: 'success', message: '' });
-
-    useEffect(() => {
-        const savedName = localStorage.getItem("lab_nickname");
-        if (savedName) setNickname(savedName);
-    }, []);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -39,6 +33,8 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
         });
 
     const handleUpload = async () => {
+        const nickname = typeof window !== "undefined" ? localStorage.getItem("lab_nickname") ?? "" : "";
+
         if (!nickname) {
             setErrorMsg("수강생 등록(로그인)이 필요합니다. 홈화면에서 닉네임을 입력해주세요.");
             return;
@@ -63,43 +59,37 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                 base64Data: base64Data
             };
 
-            await fetch(APPS_SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
-                body: JSON.stringify(payload),
-            });
+            await postAppsScript(payload);
+            await delay(3000);
 
-            // no-cors mode returns opaque response. Check successful upload directly via GET
-            setTimeout(async () => {
-                try {
-                    const checkRes = await fetch(`${APPS_SCRIPT_URL}?action=getProgress&user_id=${encodeURIComponent(nickname)}`);
-                    const checkResult = await checkRes.json();
+            const checkResult = await getAppsScriptJson<{ data?: Record<string, boolean> }>(
+                new URLSearchParams({
+                    action: "getProgress",
+                    user_id: nickname,
+                })
+            );
 
-                    if (checkResult && checkResult.data && checkResult.data[`week${weekId}`] === true) {
-                        setModal({
-                            isOpen: true,
-                            type: 'success',
-                            message: `✨ 축하합니다! ${weekId}주차 학습 코드가 구글 드라이브에 제출되었습니다.`
-                        });
-                    } else {
-                        // Failed to find `true` in DB meaning backend failed to upload Drive / write sheet
-                        setModal({
-                            isOpen: true,
-                            type: 'error',
-                            message: `⚠️ 업로드 실패: 지정된 구글 드라이브에 파일이 전송되지 않았습니다.\n\n앱스 스크립트 최신 코드를 [새 배포]로 다시 퍼블리싱 했는지(새 URL 적용 포함), 또는 구글 드라이브 접근 권한을 "모든 사용자"에게 허용했는지 확인해주세요. 자세한 이유는 Apps Script의 [실행 로그] 메뉴에서 찾을 수 있습니다.`
-                        });
-                    }
-                } catch (e) {
-                    setModal({ isOpen: true, type: 'error', message: '진척도를 검증하는 중 오류가 발생했습니다. 백엔드 주소를 확인해주세요.' });
-                }
-                setIsUploading(false);
-            }, 3000); // 3 seconds timeout for Drive API to process file creation
-
+            if (checkResult?.data?.[`week${weekId}`] === true) {
+                setModal({
+                    isOpen: true,
+                    type: "success",
+                    message: `✨ 축하합니다! ${weekId}주차 학습 코드가 구글 드라이브에 제출되었습니다.`,
+                });
+            } else {
+                setModal({
+                    isOpen: true,
+                    type: "error",
+                    message: `⚠️ 업로드 실패: 지정된 구글 드라이브에 파일이 전송되지 않았습니다.\n\n앱스 스크립트 최신 코드를 [새 배포]로 다시 퍼블리싱 했는지(새 URL 적용 포함), 또는 구글 드라이브 접근 권한을 "모든 사용자"에게 허용했는지 확인해주세요. 자세한 이유는 Apps Script의 [실행 로그] 메뉴에서 찾을 수 있습니다.`,
+                });
+            }
         } catch (err) {
             console.error(err);
-            setErrorMsg("파일 업로드 중 클라이언트 측 에러가 발생했습니다.");
+            setErrorMsg("파일 업로드 또는 검증 중 오류가 발생했습니다. Apps Script URL과 배포 상태를 확인해주세요.");
             setIsUploading(false);
+            return;
         }
+
+        setIsUploading(false);
     };
 
     const closeModal = () => {
@@ -111,19 +101,21 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
     };
 
     return (
-        <div className="bg-secondary/30 p-8 rounded-3xl border border-border/50 backdrop-blur-sm relative">
-            <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-xl">
+        <section className="relative overflow-hidden rounded-[30px] border border-white/8 bg-white/[0.035] p-8 shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-sm">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/12 via-primary/[0.03] to-transparent" />
+            <div className="relative mb-6 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-primary/15 flex items-center justify-center text-xl border border-primary/20">
                     📁
                 </div>
                 <div>
-                    <h3 className="text-xl font-black">{weekId}주차 과제 제출</h3>
-                    <p className="text-sm text-muted-foreground font-medium">실습한 코드 파일을 업로드하여 학습을 완료하세요.</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/45">Next Action</p>
+                    <h3 className="mt-1 text-xl font-black">{weekId}주차 과제 제출</h3>
+                    <p className="text-sm text-white/58 font-medium">실습한 코드 파일을 업로드하여 학습을 완료하세요.</p>
                 </div>
             </div>
 
-            <div className="space-y-4">
-                <div className="border-2 border-dashed border-border p-6 rounded-2xl flex flex-col items-center justify-center gap-4 bg-background/50 hover:bg-background transition-colors relative">
+            <div className="relative space-y-4">
+                <div className="border border-white/10 p-6 rounded-[24px] flex flex-col items-center justify-center gap-4 bg-black/20 hover:bg-black/25 transition-colors relative">
                     <input
                         type="file"
                         onChange={handleFileChange}
@@ -136,7 +128,7 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                             <span>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center gap-2 text-muted-foreground text-sm">
+                        <div className="flex flex-col items-center gap-2 text-white/60 text-sm">
                             <span className="text-2xl">👇</span>
                             <span>여기를 클릭하거나 파일을 드래그하여 첨부하세요.</span>
                             <span className="text-xs opacity-60">지원 파일: html, css, js, zip 등</span>
@@ -145,13 +137,13 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                 </div>
 
                 {errorMsg && (
-                    <p className="text-destructive text-sm font-bold bg-destructive/10 p-3 rounded-lg">{errorMsg}</p>
+                    <p className="text-destructive text-sm font-bold bg-destructive/10 p-3 rounded-xl border border-destructive/20">{errorMsg}</p>
                 )}
 
                 <button
                     onClick={handleUpload}
                     disabled={isUploading || !file}
-                    className="w-full py-4 bg-primary text-white rounded-xl font-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex justify-center items-center gap-2 shadow-lg shadow-primary/20"
+                    className="w-full py-4 bg-primary text-white rounded-2xl font-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex justify-center items-center gap-2 shadow-lg shadow-primary/20"
                 >
                     {isUploading ? (
                         <>
@@ -187,6 +179,6 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                     </div>
                 </div>
             )}
-        </div>
+        </section>
     );
 }

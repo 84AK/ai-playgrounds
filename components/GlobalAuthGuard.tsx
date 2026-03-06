@@ -1,20 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { APPS_SCRIPT_URL } from "@/app/constants";
-
-export interface UserProfile {
-    name: string;
-    school: string;
-    password?: string;
-    avatar: string;
-}
+import { usePathname } from "next/navigation";
+import useLocalProfile, { clearLocalProfile, writeLocalProfile } from "@/hooks/useLocalProfile";
+import { fetchUserProfile, registerUser } from "@/lib/appsScriptUsers";
+import type { UserProfile } from "@/types/auth";
 
 const AVATARS = ["🐶", "🐱", "🐰", "🦊", "🐻", "🐼", "🦁", "🐯", "🐨", "🐸", "🐹", "🐵"];
 
 export default function GlobalAuthGuard() {
-    const router = useRouter();
+    const pathname = usePathname();
+    const currentProfile = useLocalProfile();
     const [isMounting, setIsMounting] = useState(true);
     const [step, setStep] = useState<"login" | "avatar" | "authenticated">("authenticated");
 
@@ -29,32 +25,35 @@ export default function GlobalAuthGuard() {
     const [alertMessage, setAlertMessage] = useState("");
     const [showPassword, setShowPassword] = useState(false);
 
+    const shouldBypassGuard =
+        pathname?.startsWith("/course/") ||
+        pathname?.startsWith("/pose/") ||
+        pathname === "/curriculum" ||
+        pathname === "/guide" ||
+        pathname?.startsWith("/admin");
+
     useEffect(() => {
+        if (shouldBypassGuard) {
+            setStep("authenticated");
+            setIsMounting(false);
+            return;
+        }
+
         const checkUserValidity = async () => {
-            const savedData = localStorage.getItem("lab_user_profile");
-            if (!savedData) {
+            if (!currentProfile?.name || !currentProfile.school || !currentProfile.password || !currentProfile.avatar) {
                 setStep("login");
                 setIsMounting(false);
                 return;
             }
 
             try {
-                const parsed = JSON.parse(savedData);
-                if (!parsed.name || !parsed.school || !parsed.password || !parsed.avatar) {
-                    setStep("login");
-                    setIsMounting(false);
-                    return;
-                }
-
                 // 서버에서 해당 유저가 아직 존재하는지 검증 (삭제되었으면 자동 로그아웃)
                 try {
-                    const res = await fetch(`${APPS_SCRIPT_URL}?action=getUser&user_id=${encodeURIComponent(parsed.name)}`);
-                    const result = await res.json();
+                    const verifiedProfile = await fetchUserProfile(currentProfile.name);
 
-                    if (result.status === "error" || !result.data || result.data.password !== parsed.password) {
+                    if (verifiedProfile.password !== currentProfile.password) {
                         // 유저가 구글 시트에서 삭제되었거나 비밀번호가 변경된 경우
-                        localStorage.removeItem("lab_user_profile");
-                        localStorage.removeItem("lab_nickname");
+                        clearLocalProfile();
                         setStep("login");
                     } else {
                         setStep("authenticated");
@@ -70,36 +69,9 @@ export default function GlobalAuthGuard() {
         };
 
         checkUserValidity();
-    }, []);
+    }, [currentProfile, shouldBypassGuard]);
 
-    useEffect(() => {
-        const syncAuthState = () => {
-            const savedData = localStorage.getItem("lab_user_profile");
-            if (!savedData) {
-                setStep("login");
-                return;
-            }
-            try {
-                const parsed = JSON.parse(savedData);
-                if (parsed?.name && parsed?.school && parsed?.password && parsed?.avatar) {
-                    setStep("authenticated");
-                } else {
-                    setStep("login");
-                }
-            } catch {
-                setStep("login");
-            }
-        };
-
-        window.addEventListener("auth:changed", syncAuthState);
-        window.addEventListener("storage", syncAuthState);
-        return () => {
-            window.removeEventListener("auth:changed", syncAuthState);
-            window.removeEventListener("storage", syncAuthState);
-        };
-    }, []);
-
-    if (isMounting || step === "authenticated") {
+    if (shouldBypassGuard || isMounting || step === "authenticated") {
         return null;
     }
 
@@ -115,8 +87,13 @@ export default function GlobalAuthGuard() {
         setIsLoading(true);
         try {
             // Check if user exists on the server
-            const res = await fetch(`${APPS_SCRIPT_URL}?action=getUser&user_id=${encodeURIComponent(formData.name)}`);
-            const result = await res.json();
+            const result = await fetchUserProfile(formData.name).then((profile) => ({
+                status: "success" as const,
+                data: profile,
+            })).catch(() => ({
+                status: "error" as const,
+                data: null,
+            }));
 
             if (result.status === "success" && result.data) {
                 // User exists
@@ -127,11 +104,8 @@ export default function GlobalAuthGuard() {
                         password: result.data.password,
                         avatar: result.data.avatar,
                     };
-                    localStorage.setItem("lab_user_profile", JSON.stringify(profile));
-                    localStorage.setItem("lab_nickname", profile.name);
+                    writeLocalProfile(profile);
                     setStep("authenticated");
-                    window.dispatchEvent(new Event("auth:changed"));
-                    router.refresh();
                 } else {
                     setAlertMessage("비밀번호가 일치하지 않습니다.\n(끝에 띄어쓰기가 포함되었거나, 첫 글자가 대문자로 입력되지 않았는지 확인해 주세요!)");
                 }
@@ -171,26 +145,13 @@ export default function GlobalAuthGuard() {
         };
 
         try {
-            await fetch(APPS_SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
-                body: JSON.stringify({
-                    action: "registerUser",
-                    user_id: payload.name,
-                    school: payload.school,
-                    password: payload.password,
-                    avatar: payload.avatar
-                }),
-            });
-
-            localStorage.setItem("lab_user_profile", JSON.stringify(payload));
-            localStorage.setItem("lab_nickname", payload.name);
+            await registerUser(payload);
+            const verifiedProfile = await fetchUserProfile(payload.name);
+            writeLocalProfile(verifiedProfile);
             setStep("authenticated");
-            window.dispatchEvent(new Event("auth:changed"));
-            router.refresh();
         } catch (error) {
             console.error(error);
-            setAlertMessage("등록 중 서버 연결에 실패했습니다.");
+            setAlertMessage("등록 결과를 확인하지 못했습니다. 앱스 스크립트 배포 상태와 사용자 생성 여부를 확인해주세요.");
         } finally {
             setIsLoading(false);
         }

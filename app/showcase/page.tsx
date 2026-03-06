@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { APPS_SCRIPT_URL } from "../constants";
+import useLocalProfile from "@/hooks/useLocalProfile";
 
 export default function Showcase() {
+    const profile = useLocalProfile();
     const [projects, setProjects] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filter, setFilter] = useState("all");
@@ -39,18 +41,12 @@ export default function Showcase() {
     };
 
     useEffect(() => {
-        const savedProfile = localStorage.getItem("lab_user_profile");
-        if (savedProfile) {
-            try {
-                const parsed = JSON.parse(savedProfile);
-                setFormData(prev => ({
-                    ...prev,
-                    author: parsed.name || "",
-                    password: parsed.password || ""
-                }));
-            } catch (e) { }
-        }
-    }, []);
+        setFormData(prev => ({
+            ...prev,
+            author: profile?.name || "",
+            password: profile?.password || ""
+        }));
+    }, [profile]);
 
     useEffect(() => {
         const stored = localStorage.getItem('mbti_likedProjects');

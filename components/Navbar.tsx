@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import UserSettingsModal from "./UserSettingsModal";
-import type { UserProfile } from "./GlobalAuthGuard";
+import useLocalProfile from "@/hooks/useLocalProfile";
 
 const navItems = [
   { name: "🏠 홈", path: "/" },
@@ -15,35 +15,42 @@ const navItems = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const profile = useLocalProfile();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  const navRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const syncProfile = () => {
-      const saved = localStorage.getItem("lab_user_profile");
-      if (!saved) {
-        setProfile(null);
-        return;
-      }
-      try {
-        setProfile(JSON.parse(saved));
-      } catch {
-        setProfile(null);
+    setIsMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (navRef.current && target && !navRef.current.contains(target)) {
+        setIsMobileMenuOpen(false);
       }
     };
 
-    syncProfile();
-    window.addEventListener("auth:changed", syncProfile);
-    window.addEventListener("storage", syncProfile);
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
     return () => {
-      window.removeEventListener("auth:changed", syncProfile);
-      window.removeEventListener("storage", syncProfile);
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
     };
-  }, []);
+  }, [isMobileMenuOpen]);
 
   return (
     <>
-      <nav className="mt-6 mx-auto w-[95%] max-w-5xl z-40 relative">
+      <nav ref={navRef} className="mt-6 mx-auto w-[95%] max-w-5xl z-40 relative">
         <div className="glass rounded-[2rem] px-8 py-4 flex items-center justify-between border-white/20 shadow-2xl">
           <Link href="/" className="font-extrabold text-2xl tracking-tighter flex items-center gap-3 group">
             <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-white text-sm shadow-lg shadow-primary/30 group-hover:rotate-12 transition-transform">AI</div>
@@ -66,7 +73,7 @@ export default function Navbar() {
           </ul>
 
           <div className="flex items-center gap-2">
-            {profile ? (
+            {isMounted && profile ? (
               <button
                 onClick={() => setIsSettingsOpen(true)}
                 className="flex items-center gap-2 bg-secondary/80 hover:bg-secondary px-3 py-1.5 rounded-full border border-white/5 hover:border-white/20 transition-all"
@@ -77,12 +84,50 @@ export default function Navbar() {
             ) : (
               <div className="w-8 h-8 rounded-full bg-secondary animate-pulse" />
             )}
-            {/* Mobile menu toggle */}
-            <div className="md:hidden w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-              <span className="text-[10px] font-black">MENU</span>
-            </div>
+            <button
+              type="button"
+              aria-label={isMobileMenuOpen ? "모바일 메뉴 닫기" : "모바일 메뉴 열기"}
+              aria-expanded={isMobileMenuOpen}
+              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+              className={`md:hidden min-w-[60px] h-9 rounded-full flex items-center justify-center px-3 border transition-all ${
+                isMobileMenuOpen
+                  ? "bg-white text-primary border-white"
+                  : "bg-secondary border-white/5 hover:border-white/20"
+              }`}
+            >
+              <span className="text-[10px] font-black tracking-[0.12em]">
+                {isMobileMenuOpen ? "CLOSE" : "MENU"}
+              </span>
+            </button>
           </div>
         </div>
+
+        {isMounted && isMobileMenuOpen && (
+          <div className="md:hidden mt-3 glass rounded-[1.75rem] border border-white/10 p-3 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <ul className="space-y-2">
+              {navItems.map((item) => {
+                const isActive = pathname === item.path;
+                return (
+                  <li key={item.path}>
+                    <Link
+                      href={item.path}
+                      className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
+                        isActive
+                          ? "bg-white text-primary"
+                          : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      <span>{item.name}</span>
+                      <span className={`text-[10px] font-black tracking-[0.18em] ${isActive ? "text-primary/80" : "text-white/35"}`}>
+                        GO
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </nav>
 
       <UserSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
