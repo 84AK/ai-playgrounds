@@ -26,6 +26,20 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
         setCurrentIndex(index);
     };
 
+    // Helper to safely convert Google Drive URLs into embeddable direct links
+    const convertGoogleDriveUrl = (url: string) => {
+        const trimmed = url.trim();
+        // Match drive.google.com/uc?id=... or drive.google.com/file/d/.../view
+        const ucMatch = trimmed.match(/drive\.google\.com\/uc\?.*?id=([^&/]+)/);
+        const fileMatch = trimmed.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+
+        const id = (ucMatch && ucMatch[1]) || (fileMatch && fileMatch[1]);
+        if (id) {
+            return `https://lh3.googleusercontent.com/d/${id}`;
+        }
+        return trimmed;
+    };
+
     return (
         <div className="relative group w-full rounded-[24px] overflow-hidden border border-white/8 bg-[#0a1122] shadow-[0_12px_40px_rgba(0,0,0,0.18)] aspect-video my-8">
             {/* The Images */}
@@ -34,7 +48,7 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
                     <div key={index} className="relative w-full h-full shrink-0 flex items-center justify-center">
                         {/* Use object-contain or object-cover based on design preference. Defaulting to object-contain for full image visibility */}
                         <img
-                            src={src.trim()}
+                            src={convertGoogleDriveUrl(src)}
                             alt={`Slide ${index + 1}`}
                             className="w-full h-full object-contain"
                         />
@@ -67,8 +81,8 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
                                 key={index}
                                 onClick={() => goToImage(index)}
                                 className={`w-2 h-2 rounded-full transition-all duration-300 ${index === currentIndex
-                                        ? "bg-white w-4"
-                                        : "bg-white/40 hover:bg-white/60"
+                                    ? "bg-white w-4"
+                                    : "bg-white/40 hover:bg-white/60"
                                     }`}
                                 aria-label={`${index + 1}번 이미지로 이동`}
                             />
