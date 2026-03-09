@@ -1,31 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { APPS_SCRIPT_URL } from "@/app/constants";
+import { ProgressData, getCachedProgress, fetchAndCacheProgress, isCacheStale } from "@/lib/progressSync";
 
 interface HomeworkDashboardProps {
     nickname: string;
-}
-
-interface ProgressData {
-    mbti_week0?: boolean;
-    mbti_week1?: boolean;
-    mbti_week2?: boolean;
-    mbti_week3?: boolean;
-    mbti_week4?: boolean;
-    pose_week1?: boolean;
-    pose_week2?: boolean;
-    pose_week3?: boolean;
-    pose_week4?: boolean;
-    // Download URLs potential extension
-    mbti_week1_url?: string;
-    mbti_week2_url?: string;
-    mbti_week3_url?: string;
-    mbti_week4_url?: string;
-    pose_week1_url?: string;
-    pose_week2_url?: string;
-    pose_week3_url?: string;
-    pose_week4_url?: string;
 }
 
 const mbtiSteps = [
@@ -45,25 +24,37 @@ const poseSteps = [
 
 export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) {
     const [progress, setProgress] = useState<ProgressData | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
-        const fetchProgress = async () => {
-            if (!nickname) return;
-            try {
-                const response = await fetch(`${APPS_SCRIPT_URL}?action=getProgress&user_id=${encodeURIComponent(nickname)}`);
-                const result = await response.json();
-                if (result?.status === "success") {
-                    setProgress(result.data);
+        if (!nickname) return;
+
+        const syncProgress = async () => {
+            // SWR 패턴: 캐시를 먼저 확인
+            const cached = getCachedProgress(nickname);
+            if (cached) {
+                setProgress(cached.data);
+                if (isCacheStale(cached)) {
+                    refreshProgress();
                 }
-            } catch (err) {
-                console.error("Failed to fetch homework progress", err);
+            } else {
+                refreshProgress();
+            }
+        };
+
+        const refreshProgress = async () => {
+            setIsLoading(true);
+            try {
+                const freshData = await fetchAndCacheProgress(nickname);
+                if (freshData) {
+                    setProgress(freshData);
+                }
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchProgress();
+        syncProgress();
     }, [nickname]);
 
     const renderStep = (step: typeof mbtiSteps[0], isCompleted: boolean, downloadUrl?: string) => (

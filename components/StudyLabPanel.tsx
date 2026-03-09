@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { APPS_SCRIPT_URL } from "@/app/constants";
 import useLocalProfile from "@/hooks/useLocalProfile";
+import { fetchAndCacheProgress, getCachedProgress, isCacheStale } from "@/lib/progressSync";
 
 interface StudyLabPanelProps {
   highlighted?: boolean;
@@ -35,113 +36,43 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
 
   useEffect(() => {
     if (!profile?.name) return;
-    fetchUserProgress(profile.name);
-  }, [profile]);
 
-  useEffect(() => {
-    const handleMbtiSaved = () => {
-      if (profile?.name) {
+    // SWR 패턴 적용: 캐시된 데이터를 먼저 불러와 즉시 표시
+    const cached = getCachedProgress(profile.name);
+    if (cached) {
+      applyProgressData(cached.data);
+      // 캐시가 만료된 경우에만 백그라운드 갱신
+      if (isCacheStale(cached)) {
         fetchUserProgress(profile.name);
       }
-    };
-
-    const handleFocus = () => {
-      if (profile?.name) {
-        fetchUserProgress(profile.name);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible" && profile?.name) {
-        fetchUserProgress(profile.name);
-      }
-    };
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === "mbti_week0_force_refresh" && profile?.name) {
-        fetchUserProgress(profile.name);
-      }
-    };
-
-    window.addEventListener("mbti:save-complete", handleMbtiSaved);
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("storage", handleStorage);
-
-    return () => {
-      window.removeEventListener("mbti:save-complete", handleMbtiSaved);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("storage", handleStorage);
-    };
-  }, [profile]);
-
-  const hasMbtiMakerSaveRecord = async (userName: string) => {
-    const readTextField = (row: unknown, keyA: string, keyB: string) => {
-      if (!row || typeof row !== "object") return "";
-      const record = row as Record<string, unknown>;
-      return String(record[keyA] ?? record[keyB] ?? "").trim();
-    };
-
-    try {
-      const response = await fetch(`${APPS_SCRIPT_URL}?action=getAllMbtiData`);
-      const result = await response.json();
-
-      const normalizedName = userName.trim();
-      if (!normalizedName) return false;
-
-      if (result?.status === "success" && result?.data) {
-        const questionRows = Array.isArray(result.data.questions) ? result.data.questions : [];
-        const hasQuestionRecord = questionRows.some((item: unknown) => {
-          const author = readTextField(item, "Author", "author");
-          return author === normalizedName;
-        });
-        if (hasQuestionRecord) return true;
-
-        const showcaseRows = Array.isArray(result.data.showcase_links) ? result.data.showcase_links : [];
-        return showcaseRows.some((item: unknown) => {
-          const author = readTextField(item, "Author", "author");
-          const url = readTextField(item, "Url", "url");
-          return author === normalizedName && url.includes("/mbti/play?author=");
-        });
-      }
-
-      if (Array.isArray(result)) {
-        return result.some((item: unknown) => {
-          const author = readTextField(item, "author", "Author");
-          return author === normalizedName;
-        });
-      }
-    } catch (err) {
-      console.error("Failed to verify MBTI week0 by showcase data", err);
+    } else {
+      // 캐시가 없으면 즉시 조회
+      fetchUserProgress(profile.name);
     }
-    return false;
+  }, [profile]);
+
+  const applyProgressData = (data: any) => {
+    setMbtiProgress([
+      data.mbti_week0,
+      data.mbti_week1,
+      data.mbti_week2,
+      data.mbti_week3,
+      data.mbti_week4,
+    ]);
+    setPoseProgress([
+      data.pose_week1,
+      data.pose_week2,
+      data.pose_week3,
+      data.pose_week4,
+    ]);
   };
 
   const fetchUserProgress = async (userName: string) => {
     setIsLoadingProgress(true);
     try {
-      const response = await fetch(`${APPS_SCRIPT_URL}?action=getProgress&user_id=${encodeURIComponent(userName)}`);
-      const result = await response.json();
-      if (result && result.data) {
-        let isMbtiWeek0Completed = Boolean(result.data.mbti_week0);
-        if (!isMbtiWeek0Completed) {
-          isMbtiWeek0Completed = await hasMbtiMakerSaveRecord(userName);
-        }
-
-        setMbtiProgress([
-          isMbtiWeek0Completed,
-          result.data.mbti_week1,
-          result.data.mbti_week2,
-          result.data.mbti_week3,
-          result.data.mbti_week4,
-        ]);
-        setPoseProgress([
-          result.data.pose_week1,
-          result.data.pose_week2,
-          result.data.pose_week3,
-          result.data.pose_week4,
-        ]);
+      const freshData = await fetchAndCacheProgress(userName);
+      if (freshData) {
+        applyProgressData(freshData);
       }
     } catch (err) {
       console.error("Failed to fetch progress", err);
@@ -170,9 +101,8 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
   return (
     <div
       id="my-study-lab"
-      className={`bento-item min-h-[380px] flex flex-col relative overflow-hidden transition-all duration-500 bg-secondary/30 ${
-        highlighted ? "ring-4 ring-primary ring-offset-4 ring-offset-background shadow-[0_0_40px_rgba(var(--primary),0.5)] scale-[1.02]" : ""
-      } ${className}`}
+      className={`bento-item min-h-[380px] flex flex-col relative overflow-hidden transition-all duration-500 bg-secondary/30 ${highlighted ? "ring-4 ring-primary ring-offset-4 ring-offset-background shadow-[0_0_40px_rgba(var(--primary),0.5)] scale-[1.02]" : ""
+        } ${className}`}
     >
       <div className="relative z-10 flex flex-col h-full">
         <div className="flex justify-between items-start mb-6 gap-4">
