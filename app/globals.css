@@ -194,6 +194,16 @@
     }
   }
 
+  @keyframes progress-scan {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
   .animate-float {
     animation: float 5s ease-in-out infinite;
   }

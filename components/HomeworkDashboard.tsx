@@ -84,22 +84,48 @@ export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) 
     if (isLoading) return <div className="h-48 flex items-center justify-center text-muted-foreground animate-pulse">데이터 불러오는 중...</div>;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bento-item p-6 border-white/5 bg-secondary/5">
-                <h4 className="text-sm font-black mb-4 flex items-center gap-2">
-                    <span className="text-primary italic">01</span> MBTI Maker 과제
-                </h4>
-                <div className="space-y-2">
-                    {mbtiSteps.map(step => renderStep(step, !!progress?.[step.key as keyof ProgressData], (progress as any)?.[`${step.key}_url`]))}
+        <div className="space-y-6 relative">
+            {/* 동기화 상태 플로팅 배지 */}
+            {isLoading && (
+                <div className="absolute -top-10 right-0 bg-primary/20 backdrop-blur-md border border-primary/30 px-4 py-2 rounded-full flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 z-10">
+                    <div className="flex space-x-1">
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                    <span className="text-xs font-black text-primary uppercase tracking-tight">Syncing with Lab Server...</span>
                 </div>
-            </div>
+            )}
 
-            <div className="bento-item p-6 border-white/5 bg-secondary/5">
-                <h4 className="text-sm font-black mb-4 flex items-center gap-2">
-                    <span className="text-blue-500 italic">02</span> Pose Game 과제
-                </h4>
-                <div className="space-y-2">
-                    {poseSteps.map(step => renderStep(step, !!progress?.[step.key as keyof ProgressData], (progress as any)?.[`${step.key}_url`]))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bento-item p-6 border-white/5 bg-secondary/5 relative overflow-hidden group">
+                    {/* 로딩 중일 때 카드 상단에 흐르는 선 효과 */}
+                    {isLoading && (
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-primary/30 overflow-hidden">
+                            <div className="w-full h-full animate-[progress-scan_2s_infinite] bg-gradient-to-r from-transparent via-primary to-transparent" />
+                        </div>
+                    )}
+                    <h4 className="text-sm font-black mb-4 flex items-center gap-2">
+                        <span className="text-primary italic">01</span> MBTI Maker 과제
+                    </h4>
+                    <div className="space-y-2">
+                        {mbtiSteps.map(step => renderStep(step, !!progress?.[step.key as keyof ProgressData], (progress as any)?.[`${step.key}_url`]))}
+                    </div>
+                </div>
+
+                <div className="bento-item p-6 border-white/5 bg-secondary/5 relative overflow-hidden group">
+                    {/* 로딩 중일 때 카드 상단에 흐르는 선 효과 */}
+                    {isLoading && (
+                        <div className="absolute top-0 left-0 w-full h-[2px] bg-blue-500/30 overflow-hidden">
+                            <div className="w-full h-full animate-[progress-scan_2s_infinite] bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
+                        </div>
+                    )}
+                    <h4 className="text-sm font-black mb-4 flex items-center gap-2">
+                        <span className="text-blue-500 italic">02</span> Pose Game 과제
+                    </h4>
+                    <div className="space-y-2">
+                        {poseSteps.map(step => renderStep(step, !!progress?.[step.key as keyof ProgressData], (progress as any)?.[`${step.key}_url`]))}
+                    </div>
                 </div>
             </div>
         </div>
