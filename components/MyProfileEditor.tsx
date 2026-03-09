@@ -1,31 +1,49 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { UserProfile } from "@/types/auth";
 import { writeLocalProfile } from "@/hooks/useLocalProfile";
+import { updateUser } from "@/lib/appsScriptUsers";
 
 interface MyProfileEditorProps {
     initialProfile: UserProfile;
 }
 
-const avatars = ["👨‍🚀", "👩‍🔬", "🤖", "🧬", "💻", "🚀", "🎨", "🌍"];
+const avatars = ["👨‍🚀", "👩‍🔬", "🤖", "🧬", "💻", "🚀", "🎨", "🌍", "🐶", "🐱", "🐰", "🦊"];
 
 export default function MyProfileEditor({ initialProfile }: MyProfileEditorProps) {
     const [name, setName] = useState(initialProfile.name);
     const [school, setSchool] = useState(initialProfile.school);
     const [avatar, setAvatar] = useState(initialProfile.avatar);
+    const [password, setPassword] = useState(initialProfile.password || "");
+    const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        setIsSaving(true);
         const newProfile: UserProfile = {
             ...initialProfile,
             name,
             school,
             avatar,
+            password,
         };
-        writeLocalProfile(newProfile);
-        setIsSaved(true);
-        setTimeout(() => setIsSaved(false), 2000);
+
+        try {
+            // Update Backend (Apps Script)
+            await updateUser(newProfile);
+            // Update LocalStorage
+            writeLocalProfile(newProfile);
+
+            setIsSaved(true);
+            setTimeout(() => setIsSaved(false), 2000);
+        } catch (error) {
+            console.error("Failed to update profile", error);
+            alert("프로필 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -76,13 +94,36 @@ export default function MyProfileEditor({ initialProfile }: MyProfileEditorProps
                             className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary font-bold"
                         />
                     </div>
+                    <div className="space-y-2 md:col-span-2">
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest">비밀번호 변경</label>
+                        <div className="relative">
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary font-bold pr-12"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
+                            >
+                                {showPassword ? (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" /><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" /><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" /><line x1="2" y1="2" x2="22" y2="22" /></svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <button
                     onClick={handleSave}
-                    className="w-full py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                    disabled={isSaving}
+                    className="w-full py-4 bg-primary text-white rounded-2xl font-black shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    {isSaved ? "✅ 변경사항이 저장되었습니다!" : "💾 프로필 정보 저장하기"}
+                    {isSaving ? "⏳ 저장 중..." : isSaved ? "✅ 변경사항이 저장되었습니다!" : "💾 프로필 정보 저장하기"}
                 </button>
             </div>
         </div>

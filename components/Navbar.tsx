@@ -18,7 +18,6 @@ const navItems = [
 export default function Navbar() {
   const pathname = usePathname();
   const profile = useLocalProfile();
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
@@ -76,13 +75,13 @@ export default function Navbar() {
 
           <div className="flex items-center gap-2">
             {isMounted && profile ? (
-              <button
-                onClick={() => setIsSettingsOpen(true)}
+              <Link
+                href="/my"
                 className="flex items-center gap-2 bg-secondary/80 hover:bg-secondary px-3 py-1.5 rounded-full border border-white/5 hover:border-white/20 transition-all"
               >
                 <span className="text-xl leading-none">{profile.avatar}</span>
                 <span className="text-sm font-bold hidden sm:block pr-1">{profile.name}</span>
-              </button>
+              </Link>
             ) : (
               <div className="w-8 h-8 rounded-full bg-secondary animate-pulse" />
             )}
@@ -92,8 +91,8 @@ export default function Navbar() {
               aria-expanded={isMobileMenuOpen}
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}
               className={`md:hidden min-w-[60px] h-9 rounded-full flex items-center justify-center px-3 border transition-all ${isMobileMenuOpen
-                  ? "bg-white text-primary border-white"
-                  : "bg-secondary border-white/5 hover:border-white/20"
+                ? "bg-white text-primary border-white"
+                : "bg-secondary border-white/5 hover:border-white/20"
                 }`}
             >
               <span className="text-[10px] font-black tracking-[0.12em]">
@@ -113,8 +112,8 @@ export default function Navbar() {
                     <Link
                       href={item.path}
                       className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-all ${isActive
-                          ? "bg-white text-primary"
-                          : "bg-secondary/50 text-muted-foreground hover:text-foreground"
+                        ? "bg-white text-primary"
+                        : "bg-secondary/50 text-muted-foreground hover:text-foreground"
                         }`}
                     >
                       <span>{item.name}</span>
@@ -130,7 +129,7 @@ export default function Navbar() {
         )}
       </nav>
 
-      <UserSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+      {/* Modal removed as we now navigate to /my */}
     </>
   );
 }

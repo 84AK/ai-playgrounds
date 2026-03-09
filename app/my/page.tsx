@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import useLocalProfile from "@/hooks/useLocalProfile";
+import useLocalProfile, { clearLocalProfile } from "@/hooks/useLocalProfile";
 import MyProfileEditor from "@/components/MyProfileEditor";
 import HomeworkDashboard from "@/components/HomeworkDashboard";
 
 export default function MyPage() {
     const profile = useLocalProfile();
+
+    const handleLogout = () => {
+        if (confirm("정말 로그아웃 하시겠습니까?")) {
+            clearLocalProfile();
+            window.location.href = "/";
+        }
+    };
 
     if (!profile) {
         return (
@@ -65,6 +72,13 @@ export default function MyPage() {
                             </p>
                         </div>
                         <MyProfileEditor initialProfile={profile} />
+
+                        <button
+                            onClick={handleLogout}
+                            className="w-full py-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-2xl font-black hover:bg-destructive hover:text-white transition-all flex items-center justify-center gap-2"
+                        >
+                            🚪 연구소 로그아웃
+                        </button>
                     </div>
 
                     {/* Main: Homework dashboard */}
