@@ -8,6 +8,7 @@ import useLocalProfile from "@/hooks/useLocalProfile";
 
 const navItems = [
   { name: "🏠 홈", path: "/" },
+  { name: "👤 마이페이지", path: "/my" },
   { name: "🚀 My Study Lab", path: "/study-lab" },
   { name: "🧪 MBTI 메이커", path: "/mbti" },
   { name: "🎮 AI 포즈 게임", path: "/game" },
@@ -90,11 +91,10 @@ export default function Navbar() {
               aria-label={isMobileMenuOpen ? "모바일 메뉴 닫기" : "모바일 메뉴 열기"}
               aria-expanded={isMobileMenuOpen}
               onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-              className={`md:hidden min-w-[60px] h-9 rounded-full flex items-center justify-center px-3 border transition-all ${
-                isMobileMenuOpen
+              className={`md:hidden min-w-[60px] h-9 rounded-full flex items-center justify-center px-3 border transition-all ${isMobileMenuOpen
                   ? "bg-white text-primary border-white"
                   : "bg-secondary border-white/5 hover:border-white/20"
-              }`}
+                }`}
             >
               <span className="text-[10px] font-black tracking-[0.12em]">
                 {isMobileMenuOpen ? "CLOSE" : "MENU"}
@@ -112,11 +112,10 @@ export default function Navbar() {
                   <li key={item.path}>
                     <Link
                       href={item.path}
-                      className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-all ${
-                        isActive
+                      className={`flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-bold transition-all ${isActive
                           ? "bg-white text-primary"
                           : "bg-secondary/50 text-muted-foreground hover:text-foreground"
-                      }`}
+                        }`}
                     >
                       <span>{item.name}</span>
                       <span className={`text-[10px] font-black tracking-[0.18em] ${isActive ? "text-primary/80" : "text-white/35"}`}>
