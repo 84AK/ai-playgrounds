@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
+import MarkdownToolbar from "@/components/MarkdownToolbar";
 
 type CourseTrack = "MBTI" | "POSE";
 
@@ -21,6 +22,7 @@ export default function AdminCourseEditorPanel({
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const contentStats = useMemo(() => {
         const lines = content.length === 0 ? 0 : content.split("\n").length;
@@ -108,7 +110,9 @@ export default function AdminCourseEditorPanel({
                     <label className="mb-3 block text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">
                         Markdown Editor
                     </label>
+                    <MarkdownToolbar content={content} onChange={setContent} textareaRef={textareaRef} />
                     <textarea
+                        ref={textareaRef}
                         value={content}
                         onChange={(event) => setContent(event.target.value)}
                         placeholder="마크다운 형식으로 학습 내용을 입력하세요."
