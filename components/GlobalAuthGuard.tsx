@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import useLocalProfile, { clearLocalProfile, writeLocalProfile } from "@/hooks/useLocalProfile";
+import useLocalProfile, { clearLocalProfile, readLocalProfile, writeLocalProfile } from "@/hooks/useLocalProfile";
 import { fetchUserProfile, registerUser } from "@/lib/appsScriptUsers";
 import type { UserProfile } from "@/types/auth";
 
@@ -40,7 +40,10 @@ export default function GlobalAuthGuard() {
         }
 
         const checkUserValidity = async () => {
-            if (!currentProfile?.name || !currentProfile.school || !currentProfile.password || !currentProfile.avatar) {
+            // 브라우저 로딩 시점에 동기적으로 프로필 존재 여부를 먼저 확인하여 깜빡임 방지
+            const profileFromStorage = readLocalProfile();
+
+            if (!profileFromStorage) {
                 setStep("login");
                 setIsMounting(false);
                 return;
@@ -49,9 +52,9 @@ export default function GlobalAuthGuard() {
             try {
                 // 서버에서 해당 유저가 아직 존재하는지 검증 (삭제되었으면 자동 로그아웃)
                 try {
-                    const verifiedProfile = await fetchUserProfile(currentProfile.name);
+                    const verifiedProfile = await fetchUserProfile(profileFromStorage.name);
 
-                    if (verifiedProfile.password !== currentProfile.password) {
+                    if (verifiedProfile.password !== profileFromStorage.password) {
                         // 유저가 구글 시트에서 삭제되었거나 비밀번호가 변경된 경우
                         clearLocalProfile();
                         setStep("login");
@@ -69,7 +72,7 @@ export default function GlobalAuthGuard() {
         };
 
         checkUserValidity();
-    }, [currentProfile, shouldBypassGuard]);
+    }, [shouldBypassGuard]);
 
     if (shouldBypassGuard || isMounting || step === "authenticated") {
         return null;
