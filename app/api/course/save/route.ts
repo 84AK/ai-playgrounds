@@ -3,10 +3,7 @@ import { NextResponse } from "next/server";
 import { saveCourseContent, type CourseTrack } from "@/lib/courseContent";
 
 export async function POST(request: Request) {
-    if (process.env.NODE_ENV === "production") {
-        return NextResponse.json({ success: false, error: "운영 서버(정적 사이트)에서는 파일을 수정할 수 없습니다." }, { status: 403 });
-    }
-
+    // 참고: Vercel과 같은 서버리스 호스팅에서는 프로덕션 환경이어도 API Route가 정상 동작합니다.
     try {
         const cookieStore = await cookies();
         const hasAdmin = cookieStore.has("admin_session");
