@@ -48,14 +48,14 @@ export default function MarkdownToolbar({ content, onChange, textareaRef }: Mark
     ];
 
     return (
-        <div className="flex flex-wrap gap-2 mb-3 bg-secondary/20 p-2 rounded-xl border border-border">
+        <div className="flex overflow-x-auto whitespace-nowrap scrollbar-hide gap-2 mb-3 bg-secondary/20 p-2 rounded-xl border border-border">
             {tools.map((tool) => (
                 <button
                     key={tool.label}
                     type="button"
                     title={tool.label}
                     onClick={tool.action}
-                    className="px-3 py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary/40 rounded-lg transition-colors border border-transparent hover:border-border/50"
+                    className="flex-shrink-0 px-3 py-1.5 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary/40 rounded-lg transition-colors border border-transparent hover:border-border/50"
                 >
                     {tool.icon}
                 </button>
