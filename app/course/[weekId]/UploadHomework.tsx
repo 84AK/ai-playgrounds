@@ -50,12 +50,20 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
         try {
             const base64Data = await toBase64(file);
 
+            // 자동 파일명 생성: YYYYMMDD_닉네임_원래파일명
+            const now = new Date();
+            const dateStr = now.getFullYear() + 
+                           String(now.getMonth() + 1).padStart(2, '0') + 
+                           String(now.getDate()).padStart(2, '0');
+            const sanitizedNickname = nickname.replace(/[^a-z0-9가-힣]/gi, ''); // 특수문자 제거
+            const finalFileName = `${dateStr}_${sanitizedNickname}_${file.name}`;
+
             const payload = {
                 action: "uploadHomework",
                 user_id: nickname,
                 week: weekId,
-                fileName: file.name,
-                mimeType: file.type || "text/plain",
+                fileName: finalFileName,
+                mimeType: file.type || "application/octet-stream",
                 base64Data: base64Data
             };
 
@@ -111,6 +119,18 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                     <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/45">Next Action</p>
                     <h3 className="mt-1 text-xl font-black">{weekId}주차 과제 제출</h3>
                     <p className="text-sm text-white/58 font-medium">실습한 코드 파일을 업로드하여 학습을 완료하세요.</p>
+                </div>
+            </div>
+
+            {/* 제출 지침 공지 영역 */}
+            <div className="mb-6 p-4 rounded-2xl bg-primary/5 border border-primary/10 flex gap-3 items-start group hover:bg-primary/10 transition-colors">
+                <span className="text-lg mt-0.5 animate-pulse">📢</span>
+                <div className="space-y-1">
+                    <p className="text-xs font-black text-primary uppercase tracking-wider">제출 안내 및 주의사항</p>
+                    <p className="text-[13px] text-white/80 leading-relaxed font-medium">
+                        파일은 반드시 <span className="text-primary font-bold underline underline-offset-4">압축(.zip)</span>하여 제출해 주세요. <br/>
+                        파일명은 <span className="opacity-60 italic text-[11px]">20250311_홍길동</span> 형식으로 자동 변환되어 저장되니 안심하셔도 좋습니다!
+                    </p>
                 </div>
             </div>
 
