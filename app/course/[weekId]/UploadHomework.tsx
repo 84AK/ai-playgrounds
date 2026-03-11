@@ -61,10 +61,11 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
             const payload = {
                 action: "uploadHomework",
                 user_id: nickname,
+                course_type: "MBTI", // MBTI 과정 고정
                 week: weekId,
-                fileName: finalFileName,
-                mimeType: file.type || "application/octet-stream",
-                base64Data: base64Data
+                file_name: finalFileName,
+                mime_type: file.type || "application/octet-stream",
+                file_base64: base64Data
             };
 
             await postAppsScript(payload);
