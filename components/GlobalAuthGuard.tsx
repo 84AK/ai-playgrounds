@@ -100,17 +100,20 @@ export default function GlobalAuthGuard() {
 
             if (result.status === "success" && result.data) {
                 // User exists
-                if (result.data.password === formData.password) {
+                const dbPassword = result.data.password ? String(result.data.password).trim() : "";
+                const inputPassword = formData.password ? formData.password.trim() : "";
+
+                if (dbPassword === inputPassword) {
                     const profile: UserProfile = {
-                        name: result.data.name,
-                        school: result.data.school,
-                        password: result.data.password,
+                        name: result.data.name ? String(result.data.name).trim() : "",
+                        school: result.data.school ? String(result.data.school).trim() : "",
+                        password: dbPassword,
                         avatar: result.data.avatar,
                     };
                     writeLocalProfile(profile);
                     setStep("authenticated");
                 } else {
-                    setAlertMessage("비밀번호가 일치하지 않습니다.\n(끝에 띄어쓰기가 포함되었거나, 첫 글자가 대문자로 입력되지 않았는지 확인해 주세요!)");
+                    setAlertMessage("비밀번호가 일치하지 않습니다.\n(오타나 대소문자를 다시 한번 확인해 주세요!)");
                 }
             } else {
                 // User not found
