@@ -56,7 +56,7 @@ export default function Navbar() {
           {/* Logo Section */}
           <Link href="/" className="font-extrabold text-2xl tracking-tighter flex items-center gap-3 group shrink-0">
             <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center text-white text-sm shadow-lg shadow-primary/30 group-hover:rotate-12 transition-transform">AI</div>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70 hidden xs:block">Playgrounds</span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/70 block">Playgrounds</span>
           </Link>
 
           {/* Right Action Section */}
