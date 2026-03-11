@@ -78,7 +78,10 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                 })
             );
 
-            if (checkResult?.data?.[`week${weekId}`] === true) {
+            // 앱스 스크립트 V3는 데이터를 'mbti_week1' 과 같이 반환합니다.
+            const isSuccess = checkResult?.data?.[`mbti_week${weekId}`] === true || checkResult?.data?.[`week${weekId}`] === true;
+
+            if (isSuccess) {
                 setModal({
                     isOpen: true,
                     type: "success",
