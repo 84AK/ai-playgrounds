@@ -3,23 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { delay, getAppsScriptJson, postAppsScript } from "@/lib/appsScriptClient";
-
 import { readLocalProfile } from "@/hooks/useLocalProfile";
 
 interface UploadHomeworkProps {
     weekId: number;
-    isOpen: boolean;
-    onClose: () => void;
 }
 
-export default function UploadHomework({ weekId, isOpen, onClose }: UploadHomeworkProps) {
+export default function UploadHomework({ weekId }: UploadHomeworkProps) {
     const router = useRouter();
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [modal, setModal] = useState<{ isOpen: boolean, type: 'success' | 'error', message: string }>({ isOpen: false, type: 'success', message: '' });
-
-    if (!isOpen) return null;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -60,8 +55,6 @@ export default function UploadHomework({ weekId, isOpen, onClose }: UploadHomewo
 
         try {
             const base64Data = await toBase64(file);
-
-            // 자동 파일명 생성: YYYYMMDD_학년반_이름_원래파일명
             const now = new Date();
             const dateStr = now.getFullYear() + 
                            String(now.getMonth() + 1).padStart(2, '0') + 
@@ -71,7 +64,7 @@ export default function UploadHomework({ weekId, isOpen, onClose }: UploadHomewo
             const classStr = profile?.classGroup ? `${profile.classGroup}반` : "";
             const userInfoStr = (gradeStr || classStr) ? `${gradeStr}${classStr}_` : "";
             
-            const sanitizedNickname = nickname.replace(/[^a-z0-9가-힣]/gi, ''); // 특수문자 제거
+            const sanitizedNickname = nickname.replace(/[^a-z0-9가-힣]/gi, '');
             const finalFileName = `${dateStr}_${userInfoStr}${sanitizedNickname}_${file.name}`;
 
             const payload = {
@@ -121,7 +114,6 @@ export default function UploadHomework({ weekId, isOpen, onClose }: UploadHomewo
 
     const closeModal = () => {
         if (modal.type === 'success') {
-            onClose();
             router.push('/');
         } else {
             setModal({ ...modal, isOpen: false });
@@ -129,122 +121,148 @@ export default function UploadHomework({ weekId, isOpen, onClose }: UploadHomewo
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-center items-start p-4 bg-background/80 backdrop-blur-xl animate-in fade-in duration-300 overflow-y-auto py-12 lg:py-24">
-            <section className="relative w-full max-w-2xl rounded-[40px] border border-white/10 bg-card p-6 md:p-10 shadow-2xl animate-in zoom-in-95 duration-300 my-auto">
-                <button
-                    onClick={onClose}
-                    className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all z-10"
-                >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+        <section id="submission-section" className="relative w-full max-w-4xl mx-auto mt-24 scroll-mt-32">
+            <div className="relative overflow-hidden rounded-[48px] border border-white/10 bg-card/40 backdrop-blur-xl p-8 md:p-12 shadow-2xl">
+                {/* Background Glow */}
+                <div className="pointer-events-none absolute -top-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-[100px]" />
+                <div className="pointer-events-none absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px]" />
 
-                <div className="relative mb-8 flex items-center gap-5">
-                    <div className="w-14 h-14 rounded-2xl bg-primary/15 flex items-center justify-center text-2xl border border-primary/20 shadow-inner">
-                        🚀
-                    </div>
-                    <div>
-                        <p className="text-[12px] font-black uppercase tracking-[0.3em] text-primary/70">Submission</p>
-                        <h3 className="mt-1 text-2xl font-black">{weekId}주차 결과물 제출</h3>
-                        <p className="text-[15px] text-muted-foreground font-medium">완성된 프로젝트를 구글 드라이브에 안전하게 보관합니다.</p>
+                <div className="relative mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                    <div className="flex items-center gap-6">
+                        <div className="w-16 h-16 rounded-[24px] bg-primary/15 flex items-center justify-center text-3xl border border-primary/20 shadow-inner">
+                            🚀
+                        </div>
+                        <div>
+                        <p className="text-[12px] font-black uppercase tracking-[0.4em] text-primary/70 mb-1">Submission Area</p>
+                            <h3 className="text-3xl font-black text-white">{weekId}주차 결과물 제출하기</h3>
+                            <p className="mt-1 text-[16px] text-muted-foreground font-medium">완성된 프로젝트를 구글 드라이브에 안전하게 보관합니다.</p>
+                        </div>
                     </div>
                 </div>
 
-                {/* 제출 지침 공지 영역 */}
-                <div className="mb-8 p-6 rounded-[30px] bg-primary/5 border border-primary/10 space-y-3">
-                    <div className="flex gap-3 items-center">
-                        <span className="text-xl">📦</span>
-                        <p className="text-sm font-black text-primary uppercase tracking-wider">업로드 가이드</p>
-                    </div>
-                    <div className="space-y-2 text-[14px] text-foreground/80 leading-relaxed font-medium">
-                        <p>• 여러 개의 파일인 경우 반드시 <span className="text-primary font-bold underline underline-offset-4 decoration-2">압축파일(.zip)</span>로 묶어서 제출해 주세요.</p>
-                        <p>• 파일명은 <span className="text-primary font-bold">오늘날짜_학년반_이름_원래파일명</span> 형식으로 서버에서 자동 변환됩니다.</p>
-                        <p className="text-[12px] text-muted-foreground pt-1 italic opacity-80">* 예시: 20250313_2학년6반_홍길동_project.zip</p>
-                    </div>
-                </div>
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr,400px] gap-12">
+                    {/* Left: Upload Area */}
+                    <div className="space-y-6">
+                        <div className="group relative border-2 border-dashed border-white/10 p-12 rounded-[40px] flex flex-col items-center justify-center gap-6 bg-black/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-500 cursor-pointer overflow-hidden min-h-[320px]">
+                            <input
+                                type="file"
+                                onChange={handleFileChange}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                accept=".html,.css,.js,.zip,.json,.md"
+                            />
+                            {file ? (
+                                <div className="flex flex-col items-center gap-4 text-primary animate-in zoom-in duration-300">
+                                    <div className="w-20 h-20 rounded-3xl bg-primary/10 flex items-center justify-center text-4xl mb-2 shadow-2xl border border-primary/20">
+                                        📄
+                                    </div>
+                                    <div className="text-center">
+                                        <h4 className="font-black text-xl mb-1">{file.name}</h4>
+                                        <p className="text-sm opacity-70 font-bold">{(file.size / 1024).toFixed(1)} KB • 업로드 대기 중</p>
+                                    </div>
+                                    <button 
+                                        onClick={(e) => { e.preventDefault(); setFile(null); }}
+                                        className="mt-2 text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-destructive transition-colors relative z-20"
+                                    >
+                                        파일 삭제
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-4 text-muted-foreground transition-transform group-hover:scale-105 duration-500">
+                                    <div className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-4xl mb-2 border border-white/5 transition-all group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary">
+                                        📤
+                                    </div>
+                                    <div className="text-center">
+                                        <span className="block font-black text-lg text-white/90 group-hover:text-primary transition-colors">여기를 클릭하거나 파일을 드래그하세요</span>
+                                        <span className="block text-sm opacity-50 mt-1 font-medium">zip, html, js, css 등 지원</span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
 
-                <div className="relative space-y-6">
-                    <div className="group relative border-2 border-dashed border-white/10 p-10 rounded-[32px] flex flex-col items-center justify-center gap-5 bg-black/10 hover:border-primary/40 hover:bg-primary/5 transition-all duration-300 cursor-pointer overflow-hidden">
-                        <input
-                            type="file"
-                            onChange={handleFileChange}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                            accept=".html,.css,.js,.zip,.json,.md"
-                        />
-                        {file ? (
-                            <div className="flex flex-col items-center gap-3 text-primary animate-in zoom-in duration-200">
-                                <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center text-3xl mb-1 shadow-lg border border-primary/20">
-                                    📄
-                                </div>
-                                <span className="font-bold text-lg">{file.name}</span>
-                                <span className="text-xs bg-primary/10 px-3 py-1 rounded-full">{(file.size / 1024).toFixed(1)} KB</span>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center gap-3 text-muted-foreground transition-transform group-hover:scale-105 duration-300">
-                                <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center text-3xl mb-1 border border-white/5 transition-colors group-hover:border-primary/20">
-                                    📤
-                                </div>
-                                <span className="font-black text-sm">여기를 클릭하거나 파일을 드래그하세요</span>
-                                <span className="text-xs opacity-60">zip, html, js, css 등 지원</span>
+                        {errorMsg && (
+                            <div className="flex items-center gap-3 text-destructive text-sm font-bold bg-destructive/10 p-5 rounded-[24px] border border-destructive/20 animate-in slide-in-from-top-2">
+                                <span className="text-xl">⚠️</span> {errorMsg}
                             </div>
                         )}
-                    </div>
 
-                    {errorMsg && (
-                        <div className="flex items-center gap-2 text-destructive text-sm font-bold bg-destructive/10 p-4 rounded-2xl border border-destructive/20 animate-in slide-in-from-top-2">
-                            <span>⚠️</span> {errorMsg}
-                        </div>
-                    )}
-
-                    <div className="flex gap-3 pt-2">
-                        <button
-                            onClick={onClose}
-                            className="flex-1 py-4 bg-white/5 text-foreground rounded-2xl font-black hover:bg-white/10 transition-all border border-white/5"
-                        >
-                            취소
-                        </button>
                         <button
                             onClick={handleUpload}
                             disabled={isUploading || !file}
-                            className="flex-[2] py-4 bg-primary text-white rounded-2xl font-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-all flex justify-center items-center gap-3 shadow-xl shadow-primary/20"
+                            className="w-full py-6 bg-primary text-white rounded-[24px] text-lg font-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 transition-all flex justify-center items-center gap-4 shadow-2xl shadow-primary/20 relative group overflow-hidden"
                         >
+                            <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
                             {isUploading ? (
                                 <>
-                                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                                    <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                     제출하는 중...
                                 </>
                             ) : (
-                                "✅ 제출 완료하기"
+                                <><span>✅</span> 과제 제출 완료하기</>
                             )}
                         </button>
                     </div>
-                </div>
 
-                {/* Modal Popup (Internal to Upload) */}
-                {modal.isOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-                        <div className="bg-background max-w-sm w-full p-10 rounded-[40px] shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200 text-center">
-                            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 ${modal.type === 'success' ? 'bg-green-500/10 text-green-500 shadow-[0_0_30px_rgba(34,197,94,0.2)]' : 'bg-destructive/10 text-destructive shadow-[0_0_30px_rgba(239,68,68,0.2)]'}`}>
-                                {modal.type === 'success' ? (
-                                    <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                                ) : (
-                                    <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                )}
+                    {/* Right: Guide Card */}
+                    <div className="p-8 rounded-[40px] bg-primary/5 border border-primary/10 flex flex-col justify-between">
+                        <div>
+                            <div className="flex gap-4 items-center mb-6">
+                                <div className="w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center text-xl shadow-lg shadow-primary/20">
+                                    📦
+                                </div>
+                                <h4 className="font-black text-primary uppercase tracking-widest text-sm">업로드 가이드</h4>
                             </div>
-                            <h3 className="text-2xl font-black mb-4">{modal.type === 'success' ? '제출 성공!' : '제출 실패'}</h3>
-                            <p className="text-muted-foreground font-medium leading-relaxed whitespace-pre-wrap mb-8 text-[15px]">{modal.message}</p>
+                            
+                            <ul className="space-y-6">
+                                <li className="flex gap-4">
+                                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                                    <p className="text-[15px] leading-relaxed text-foreground/80 font-medium">
+                                        여러 개의 파일인 경우 반드시 <span className="text-primary font-bold underline underline-offset-4">압축파일(.zip)</span>로 묶어서 제출해 주세요.
+                                    </p>
+                                </li>
+                                <li className="flex gap-4">
+                                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                                    <p className="text-[15px] leading-relaxed text-foreground/80 font-medium">
+                                        파일명은 <span className="text-primary font-bold">오늘날짜_학년반_이름_원래파일명</span> 형식으로 서버에서 자동 변환됩니다.
+                                    </p>
+                                </li>
+                            </ul>
+                        </div>
 
-                            <button
-                                onClick={closeModal}
-                                className={`w-full py-5 rounded-[20px] font-black text-white transition-all shadow-lg ${modal.type === 'success' ? 'bg-primary hover:bg-primary/90 shadow-primary/20' : 'bg-destructive hover:bg-destructive/90 shadow-destructive/20'}`}
-                            >
-                                {modal.type === 'success' ? '메인으로 이동' : '다시 시도'}
-                            </button>
+                        <div className="mt-10 pt-8 border-t border-primary/10">
+                            <p className="text-[12px] text-muted-foreground italic font-medium opacity-80 mb-2">
+                                * 변환 예시: 
+                            </p>
+                            <div className="p-3 rounded-xl bg-primary/10 font-mono text-[11px] text-primary/80 font-bold break-all">
+                                20250313_2학년6반_홍길동_project.zip
+                            </div>
                         </div>
                     </div>
-                )}
-            </section>
-        </div>
+                </div>
+            </div>
+
+            {/* Success/Error Modal (Scoped within section) */}
+            {modal.isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-2xl animate-in fade-in duration-300">
+                    <div className="bg-background max-w-sm w-full p-12 rounded-[48px] shadow-2xl border border-white/10 animate-in zoom-in-95 duration-300 text-center">
+                        <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto mb-8 ${modal.type === 'success' ? 'bg-green-500/10 text-green-500 shadow-[0_0_40px_rgba(34,197,94,0.3)]' : 'bg-destructive/10 text-destructive shadow-[0_0_40px_rgba(239,68,68,0.3)]'}`}>
+                            {modal.type === 'success' ? (
+                                <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                            ) : (
+                                <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                            )}
+                        </div>
+                        <h3 className="text-3xl font-black mb-4">{modal.type === 'success' ? '제출 성공!' : '제출 실패'}</h3>
+                        <p className="text-muted-foreground font-medium leading-relaxed mb-10 text-[16px]">{modal.message}</p>
+
+                        <button
+                            onClick={closeModal}
+                            className={`w-full py-5 rounded-[24px] font-black text-white transition-all shadow-xl ${modal.type === 'success' ? 'bg-primary hover:bg-primary/90 shadow-primary/20' : 'bg-destructive hover:bg-destructive/90 shadow-destructive/20'}`}
+                        >
+                            {modal.type === 'success' ? '메인으로 이동' : '다시 시도'}
+                        </button>
+                    </div>
+                </div>
+            )}
+        </section>
     );
 }

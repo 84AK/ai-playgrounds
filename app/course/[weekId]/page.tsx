@@ -1,6 +1,7 @@
 import Link from "next/link";
 import MarkdownContent from "../../../components/MarkdownContent";
 import CourseSubmissionTrigger, { SidebarSubmitButton } from "./CourseSubmissionTrigger";
+import UploadHomework from "./UploadHomework";
 import { getCourseContent } from "@/lib/courseContent";
 
 export async function generateStaticParams() {
@@ -75,6 +76,13 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
                 <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] gap-12">
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <MarkdownContent content={content} className="max-w-none prose-invert" />
+                        
+                        {/* Submission Section Integration */}
+                        {!errorLoading && (
+                            <div className="mt-24 pt-24 border-t border-white/5">
+                                <UploadHomework weekId={mbtiWeekNum} />
+                            </div>
+                        )}
                     </div>
 
                     {!errorLoading && (
