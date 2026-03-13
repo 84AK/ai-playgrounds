@@ -17,6 +17,8 @@ export default function GlobalAuthGuard() {
     const [formData, setFormData] = useState({
         name: "",
         school: "",
+        grade: "",
+        classGroup: "",
         password: "",
     });
     const [selectedAvatar, setSelectedAvatar] = useState("");
@@ -81,9 +83,14 @@ export default function GlobalAuthGuard() {
     const handleLoginSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        // 로그인 모드일 때는 학교 입력 검사 생략
-        if (!formData.name.trim() || !formData.password.trim() || (!isLoginMode && !formData.school.trim())) {
-            setAlertMessage("모든 필드를 입력해주세요.");
+        // 필수 필드 검사
+        if (!formData.name.trim() || !formData.password.trim()) {
+            setAlertMessage("이름과 비밀번호를 입력해주세요.");
+            return;
+        }
+
+        if (!isLoginMode && (!formData.school.trim() || !formData.grade.trim() || !formData.classGroup.trim())) {
+            setAlertMessage("모든 필드(이름, 학교, 학년, 반, 비밀번호)를 입력해주세요.");
             return;
         }
 
@@ -100,6 +107,13 @@ export default function GlobalAuthGuard() {
 
             if (result.status === "success" && result.data) {
                 // User exists
+                if (!isLoginMode) {
+                    // 가입 모드인데 사용자가 존재할 경우 -> 중복 안내
+                    setAlertMessage("이미 등록된 이름입니다. 다른 이름을 사용하거나 로그인을 시도해 주세요.");
+                    setIsLoading(false);
+                    return;
+                }
+
                 const dbPassword = result.data.password ? String(result.data.password).trim() : "";
                 const inputPassword = formData.password ? formData.password.trim() : "";
 
@@ -107,6 +121,8 @@ export default function GlobalAuthGuard() {
                     const profile: UserProfile = {
                         name: result.data.name ? String(result.data.name).trim() : "",
                         school: result.data.school ? String(result.data.school).trim() : "",
+                        grade: result.data.grade,
+                        classGroup: result.data.classGroup,
                         password: dbPassword,
                         avatar: result.data.avatar,
                     };
@@ -146,6 +162,8 @@ export default function GlobalAuthGuard() {
         const payload: UserProfile = {
             name: formData.name,
             school: formData.school,
+            grade: formData.grade,
+            classGroup: formData.classGroup,
             password: formData.password,
             avatar: selectedAvatar,
         };
@@ -178,8 +196,8 @@ export default function GlobalAuthGuard() {
                             <h2 className="text-2xl font-bold text-foreground">
                                 {isLoginMode ? "AI 연구소 로그인" : "AI 연구소 시작하기"}
                             </h2>
-                            <p className="text-sm text-muted-foreground">
-                                {isLoginMode ? "이름과 비밀번호를 입력해주세요." : "이름과 학교, 그리고 비밀번호를 설정해주세요."}
+                            <p className="text-sm text-muted-foreground break-keep">
+                                {isLoginMode ? "이름과 비밀번호를 입력해주세요." : "이름, 학교, 학년, 반 그리고 비밀번호를 설정해주세요."}
                             </p>
                         </div>
 
@@ -197,16 +215,46 @@ export default function GlobalAuthGuard() {
                             </div>
 
                             {!isLoginMode && (
-                                <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                    <label className="text-sm font-medium text-foreground">소속 학교</label>
-                                    <input
-                                        type="text"
-                                        required={!isLoginMode}
-                                        className="w-full bg-background/50 text-foreground placeholder:text-muted-foreground border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                                        placeholder="ㅇㅇ고등학교"
-                                        value={formData.school}
-                                        onChange={(e) => setFormData({ ...formData, school: e.target.value })}
-                                    />
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-foreground">소속 학교</label>
+                                        <input
+                                            type="text"
+                                            required={!isLoginMode}
+                                            className="w-full bg-background/50 text-foreground placeholder:text-muted-foreground border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                            placeholder="대건고등학교"
+                                            value={formData.school}
+                                            onChange={(e) => setFormData({ ...formData, school: e.target.value })}
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-foreground">학년</label>
+                                            <input
+                                                type="text"
+                                                required={!isLoginMode}
+                                                className="w-full bg-background/50 text-foreground placeholder:text-muted-foreground border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                                placeholder="1"
+                                                value={formData.grade}
+                                                onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-foreground">반</label>
+                                            <input
+                                                type="text"
+                                                required={!isLoginMode}
+                                                className="w-full bg-background/50 text-foreground placeholder:text-muted-foreground border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                                                placeholder="2"
+                                                value={formData.classGroup}
+                                                onChange={(e) => setFormData({ ...formData, classGroup: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[11px] text-primary/80 font-medium pl-1">
+                                        * 1학년 2반 형식으로 입력할 수 있게 도와줍니다.
+                                    </p>
                                 </div>
                             )}
 
@@ -254,7 +302,7 @@ export default function GlobalAuthGuard() {
                                 type="button"
                                 onClick={() => {
                                     setIsLoginMode(!isLoginMode);
-                                    setFormData({ ...formData, school: "" });
+                                    setFormData({ ...formData, school: "", grade: "", classGroup: "" });
                                 }}
                                 className="text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
                             >

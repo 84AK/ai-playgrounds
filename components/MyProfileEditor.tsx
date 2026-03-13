@@ -14,6 +14,8 @@ const avatars = ["👨‍🚀", "👩‍🔬", "🤖", "🧬", "💻", "🚀", "
 export default function MyProfileEditor({ initialProfile }: MyProfileEditorProps) {
     const [name, setName] = useState(initialProfile.name);
     const [school, setSchool] = useState(initialProfile.school);
+    const [grade, setGrade] = useState(initialProfile.grade || "");
+    const [classGroup, setClassGroup] = useState(initialProfile.classGroup || "");
     const [avatar, setAvatar] = useState(initialProfile.avatar);
     const [password, setPassword] = useState(initialProfile.password || "");
     const [isSaving, setIsSaving] = useState(false);
@@ -26,6 +28,8 @@ export default function MyProfileEditor({ initialProfile }: MyProfileEditorProps
             ...initialProfile,
             name,
             school,
+            grade,
+            classGroup,
             avatar,
             password,
         };
@@ -91,6 +95,27 @@ export default function MyProfileEditor({ initialProfile }: MyProfileEditorProps
                             type="text"
                             value={school}
                             onChange={(e) => setSchool(e.target.value)}
+                            placeholder="대건고등학교"
+                            className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary font-bold"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest">학년</label>
+                        <input
+                            type="text"
+                            value={grade}
+                            onChange={(e) => setGrade(e.target.value)}
+                            placeholder="1"
+                            className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary font-bold"
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-widest">반</label>
+                        <input
+                            type="text"
+                            value={classGroup}
+                            onChange={(e) => setClassGroup(e.target.value)}
+                            placeholder="2"
                             className="w-full bg-background/50 border border-white/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary font-bold"
                         />
                     </div>

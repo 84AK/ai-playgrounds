@@ -26,6 +26,8 @@ export async function registerUser(profile: UserProfile) {
         action: "registerUser",
         user_id: profile.name,
         school: profile.school,
+        grade: profile.grade,
+        classGroup: profile.classGroup,
         password: profile.password,
         avatar: profile.avatar,
     });
@@ -36,6 +38,8 @@ export async function updateUser(profile: UserProfile) {
         action: "updateUser",
         user_id: profile.name,
         school: profile.school,
+        grade: profile.grade,
+        classGroup: profile.classGroup,
         password: profile.password,
         avatar: profile.avatar,
     });
