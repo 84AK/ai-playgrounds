@@ -129,8 +129,8 @@ export default function UploadHomework({ weekId, isOpen, onClose }: UploadHomewo
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-xl animate-in fade-in duration-300">
-            <section className="relative w-full max-w-2xl overflow-hidden rounded-[40px] border border-white/10 bg-card p-10 shadow-2xl animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-50 flex justify-center items-start p-4 bg-background/80 backdrop-blur-xl animate-in fade-in duration-300 overflow-y-auto py-12 lg:py-24">
+            <section className="relative w-full max-w-2xl rounded-[40px] border border-white/10 bg-card p-6 md:p-10 shadow-2xl animate-in zoom-in-95 duration-300 my-auto">
                 <button
                     onClick={onClose}
                     className="absolute top-6 right-6 w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all z-10"
