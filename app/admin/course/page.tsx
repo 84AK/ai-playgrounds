@@ -109,6 +109,7 @@ export default async function AdminCoursePage(props: {
                 </section>
 
                 <AdminCourseEditorPanel
+                    key={`${track}-${weekId}`}
                     track={track}
                     weekId={weekId}
                     initialContent={result.content}
