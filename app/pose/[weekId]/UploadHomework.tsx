@@ -52,14 +52,23 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
         try {
             const base64Data = await toBase64(file);
 
+            const ext = file.name.split('.').pop() || "";
+            
+            const gradeStr = profile?.grade ? `${profile.grade}학년` : "";
+            const classStr = profile?.classGroup ? `${profile.classGroup}반` : "";
+            const userInfoStr = (gradeStr || classStr) ? `${gradeStr}${classStr}_` : "";
+            
+            const sanitizedNickname = profile.name.replace(/[^a-z0-9가-힣]/gi, '');
+            const finalFileName = `${weekId}주차_${userInfoStr}${sanitizedNickname}.${ext}`;
+
             const payload = {
                 action: "uploadHomework",
                 user_id: profile.name,
+                course_type: "POSE",
                 week: weekId,
-                courseType: "POSE", // THIS IS CRITICAL FOR DIFFERENTIATING
-                fileName: `[POSE]${file.name}`,
-                mimeType: file.type || "text/plain",
-                base64Data: base64Data
+                file_name: finalFileName,
+                mime_type: file.type || "application/octet-stream",
+                file_base64: base64Data
             };
 
             await postAppsScript(payload);

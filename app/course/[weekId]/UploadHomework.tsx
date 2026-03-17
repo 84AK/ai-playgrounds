@@ -55,17 +55,14 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
 
         try {
             const base64Data = await toBase64(file);
-            const now = new Date();
-            const dateStr = now.getFullYear() + 
-                           String(now.getMonth() + 1).padStart(2, '0') + 
-                           String(now.getDate()).padStart(2, '0');
+            const ext = file.name.split('.').pop() || "";
             
             const gradeStr = profile?.grade ? `${profile.grade}학년` : "";
             const classStr = profile?.classGroup ? `${profile.classGroup}반` : "";
             const userInfoStr = (gradeStr || classStr) ? `${gradeStr}${classStr}_` : "";
             
             const sanitizedNickname = nickname.replace(/[^a-z0-9가-힣]/gi, '');
-            const finalFileName = `${dateStr}_${userInfoStr}${sanitizedNickname}_${file.name}`;
+            const finalFileName = `${weekId}주차_${userInfoStr}${sanitizedNickname}.${ext}`;
 
             const payload = {
                 action: "uploadHomework",
@@ -222,7 +219,7 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                 <li className="flex gap-4">
                                     <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                                     <p className="text-[15px] leading-relaxed text-foreground/80 font-medium">
-                                        파일명은 <span className="text-primary font-bold">오늘날짜_학년반_이름_원래파일명</span> 형식으로 서버에서 자동 변환됩니다.
+                                        파일명은 <span className="text-primary font-bold">주차_학년반_이름.확장자</span> 형식으로 자동 변환됩니다.
                                     </p>
                                 </li>
                             </ul>
@@ -233,7 +230,7 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                 * 변환 예시: 
                             </p>
                             <div className="p-3 rounded-xl bg-primary/10 font-mono text-[11px] text-primary/80 font-bold break-all">
-                                20250313_2학년6반_홍길동_project.zip
+                                {weekId}주차_2학년6반_홍길동.zip
                             </div>
                         </div>
                     </div>
