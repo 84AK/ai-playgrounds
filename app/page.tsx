@@ -182,32 +182,28 @@ export default function Home() {
             <div className="bento-item min-h-[320px] flex flex-col justify-between overflow-hidden">
               <div className="relative z-10 space-y-6">
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black rounded-full uppercase">Analytics & Tools</div>
-                <h3 className="text-2xl md:text-3xl font-black tracking-tighter">📊 학습 기록 및<br />플레이그라운드 연동</h3>
+                <h3 className="text-2xl md:text-3xl font-black tracking-tighter">📊 학습 기록 및<br />대시보드</h3>
                 <p className="text-muted-foreground text-sm font-medium leading-relaxed">
-                  나의 실습 현황과 프로젝트 배포 사이트들을 빠르게 모니터링하세요.
+                  나의 실습 현황과 프로젝트 배포 상태를 바로 모니터링하세요.
                 </p>
               </div>
               
-              <div className="grid grid-cols-2 gap-4 mt-8">
+              <div className="mt-8">
                 <Link 
                   href="https://activity-log-six.vercel.app/"
                   target="_blank"
-                  className="p-4 bg-white/5 dark:bg-black/20 hover:bg-white/10 dark:hover:bg-black/40 rounded-2xl border border-white/5 hover:border-emerald-500/30 shadow-inner group transition-all flex flex-col items-center justify-center text-center gap-2"
+                  className="p-6 bg-white/5 dark:bg-black/20 hover:bg-white/10 dark:hover:bg-black/40 rounded-2xl border border-white/5 hover:border-emerald-500/30 shadow-inner group transition-all flex flex-col items-center justify-center text-center gap-3 w-full"
                 >
-                  <span className="text-2xl">📝</span>
-                  <span className="text-xs font-extrabold group-hover:text-emerald-500 transition-colors">Activity Log</span>
-                </Link>
-                <Link 
-                  href="https://ai-playgrounds.vercel.app/"
-                  target="_blank"
-                  className="p-4 bg-white/5 dark:bg-black/20 hover:bg-white/10 dark:hover:bg-black/40 rounded-2xl border border-white/5 hover:border-emerald-500/30 shadow-inner group transition-all flex flex-col items-center justify-center text-center gap-2"
-                >
-                  <span className="text-2xl">🌐</span>
-                  <span className="text-xs font-extrabold group-hover:text-emerald-500 transition-colors">Playgrounds</span>
+                  <span className="text-3xl">📝</span>
+                  <div className="flex flex-col items-center">
+                    <span className="text-base font-extrabold group-hover:text-emerald-500 transition-colors">Activity Log</span>
+                    <span className="text-xs text-muted-foreground font-medium mt-1">나의 실시간 학습 및 활동 기록 확인하기</span>
+                  </div>
                 </Link>
               </div>
               <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl -z-10" />
             </div>
+
 
           </div>
 
