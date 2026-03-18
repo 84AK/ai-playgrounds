@@ -29,48 +29,30 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a;
+  --background: #FDFAEF; /* 따뜻한 크림/아이보리 */
+  --foreground: #2F3D4A; /* 부드러운 검은회색 */
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #2F3D4A;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #6366f1;
+  --popover-foreground: #2F3D4A;
+  --primary: #FF8C42; /* 따뜻한 오렌지/코랄 */
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #f1f5f9;
-  --accent-foreground: #0f172a;
-  --destructive: #ef4444;
+  --secondary: #FFF8E1; /* 연한 노랑/크림베이지 */
+  --secondary-foreground: #D35400;
+  --muted: #F4F6F6;
+  --muted-foreground: #7F8C8D;
+  --accent: #E8F6F3; /* 연한 민트그린 */
+  --accent-foreground: #16A085;
+  --destructive: #E74C3C;
   --destructive-foreground: #ffffff;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #6366f1;
-  --radius: 0.75rem;
+  --border: #E5E8E8;
+  --input: #E5E8E8;
+  --ring: #FF8C42;
+  --radius: 1.25rem; /* 더 둥글둥글하고 친근한 디자인 */
 }
 
 .dark {
-  --background: #020617;
-  --foreground: #f8fafc;
-  --card: #0f172a;
-  --card-foreground: #f8fafc;
-  --popover: #020617;
-  --popover-foreground: #f8fafc;
-  --primary: #818cf8;
-  --primary-foreground: #0f172a;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
-  --destructive: #ef4444;
-  --destructive-foreground: #f8fafc;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #818cf8;
+  /* 다크모드 미지원 처리 또는 기존 유지 (현재는 라이트 중심 리뉴얼) */
 }
 
 @layer base {
@@ -81,40 +63,28 @@
   body {
     @apply bg-background text-foreground font-sans transition-colors duration-300;
   }
+
+  /* 일러스트 느낌의 입력폼 전역 스타일 */
+  input[type="text"], input[type="password"], textarea, select {
+    @apply bg-white border-2 border-[#2F3D4A] rounded-xl px-4 py-3 text-sm font-bold text-[#2F3D4A] focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-[2px_2px_0px_0px_#2F3D4A];
+  }
+
+  label {
+    @apply text-slate-700 font-black;
+  }
 }
 
 @layer components {
 
-  /* Glassmorphism 2.0 Utilities */
+  /* Glassmorphism 2.0 (기존 유지용) */
   .glass {
-    background-color: rgb(255 255 255 / 0.1);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgb(255 255 255 / 0.2);
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    background-color: rgb(255 255 255 / 0.8);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgb(255 255 255 / 0.4);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05);
   }
 
-  .dark .glass {
-    background-color: rgb(0 0 0 / 0.2);
-    border: 1px solid rgb(255 255 255 / 0.1);
-  }
-
-  .glass-card {
-    border-radius: 1.5rem;
-    padding: 1.5rem;
-    transition-property: all;
-    transition-duration: 300ms;
-    background-color: rgb(255 255 255 / 0.1);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgb(255 255 255 / 0.2);
-    box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  }
-
-  .dark .glass-card {
-    background-color: rgb(0 0 0 / 0.2);
-    border: 1px solid rgb(255 255 255 / 0.1);
-  }
-
-  /* Bento Grid Layout Utility */
+  /* Educational Bento Grid Layout */
   .bento-grid {
     display: grid;
     grid-template-cols: repeat(2, minmax(0, 1fr));
@@ -134,40 +104,26 @@
     }
   }
 
+  /* 일러스트 느낌의 따뜻한 카드 디자인 */
   .bento-item {
     overflow: hidden;
     position: relative;
     border-radius: 2rem;
-    padding: 2rem;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-    backdrop-filter: blur(25px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.3);
-  }
-
-  .bento-item::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.1), transparent);
-    pointer-events: none;
+    padding: 2.25rem;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* 바운시 효과 */
+    background: #ffffff;
+    border: 2px solid #2F3D4A; /* 귀여운 블랙 보더 아웃라인 style */
+    box-shadow: 6px 6px 0px 0px #2F3D4A; /* 레트로/일러스트 팝업 섀도우 */
   }
 
   .bento-item:hover {
-    transform: translateY(-5px);
-    border-color: rgba(255, 255, 255, 0.2);
-    box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.4);
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+    transform: translate(-4px, -4px);
+    box-shadow: 10px 10px 0px 0px #2F3D4A;
   }
 
   .dark .bento-item {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
-  .dark .bento-item:hover {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+    background: #ffffff;
+    border: 2px solid #2F3D4A;
   }
 
   /* Modern Typography */

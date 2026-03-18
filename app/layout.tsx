@@ -25,9 +25,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className="dark">
+    <html lang="ko">
       <body
-        className={`dark ${geistSans.variable} ${geistMono.variable} antialiased min-h-screen relative overflow-x-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen relative overflow-x-hidden bg-[#FDFAEF] text-[#2F3D4A]`}
       >
         <GlobalAuthGuard />
         <LayoutClientWrapper>{children}</LayoutClientWrapper>

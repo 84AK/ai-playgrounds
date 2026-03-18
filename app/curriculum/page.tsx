@@ -36,12 +36,12 @@ export default async function CurriculumPage() {
             </div>
 
             <div className="space-y-20">
-                <section className="prose prose-invert prose-p:text-muted-foreground prose-headings:text-foreground prose-a:text-primary max-w-none">
+                <section className="prose prose-p:text-slate-600 prose-headings:text-[#2F3D4A] prose-a:text-primary max-w-none">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{mbtiContent}</ReactMarkdown>
                 </section>
 
-                <section className="prose prose-invert prose-p:text-muted-foreground prose-headings:text-foreground prose-a:text-blue-500 max-w-none">
-                    <div className="border-t border-border/50 pt-16 mt-16" />
+                <section className="prose prose-p:text-slate-600 prose-headings:text-[#2F3D4A] prose-a:text-blue-500 max-w-none">
+                    <div className="border-t border-[#2F3D4A]/10 pt-16 mt-16" />
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{poseContent}</ReactMarkdown>
                 </section>
             </div>

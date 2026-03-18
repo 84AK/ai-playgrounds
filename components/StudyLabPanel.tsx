@@ -37,16 +37,13 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
   useEffect(() => {
     if (!profile?.name) return;
 
-    // SWR 패턴 적용: 캐시된 데이터를 먼저 불러와 즉시 표시
     const cached = getCachedProgress(profile.name);
     if (cached) {
       applyProgressData(cached.data);
-      // 캐시가 만료된 경우에만 백그라운드 갱신
       if (isCacheStale(cached)) {
         fetchUserProgress(profile.name);
       }
     } else {
-      // 캐시가 없으면 즉시 조회
       fetchUserProgress(profile.name);
     }
   }, [profile]);
@@ -101,114 +98,100 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
   return (
     <div
       id="my-study-lab"
-      className={`bento-item min-h-[380px] flex flex-col relative overflow-hidden transition-all duration-500 bg-secondary/30 ${highlighted ? "ring-4 ring-primary ring-offset-4 ring-offset-background shadow-[0_0_40px_rgba(var(--primary),0.5)] scale-[1.02]" : ""
+      className={`bento-item min-h-[380px] flex flex-col relative overflow-hidden transition-all duration-500 bg-white ${highlighted ? "ring-4 ring-primary ring-offset-4 ring-offset-background scale-[1.02]" : ""
         } ${className}`}
     >
-      <div className="relative z-10 flex flex-col h-full">
-        <div className="flex justify-between items-start mb-6 gap-4">
+      <div className="relative z-10 flex flex-col h-full gap-5">
+        <div className="flex justify-between items-start gap-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.34em] text-primary/70">Study Dashboard</p>
-            <h3 className="mt-2 text-2xl font-black uppercase tracking-tight italic">🚀 My Study Lab</h3>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Study Dashboard</p>
+            <h3 className="mt-1 text-2xl font-black uppercase tracking-tight text-[#2F3D4A]">🚀 My Study Lab</h3>
           </div>
           {profile && (
-            <div className="flex items-center gap-2 bg-background/50 border border-white/5 pl-1 pr-3 py-1 rounded-full text-xs font-bold">
-              <span className="text-lg leading-none">{profile.avatar}</span>
-              <span className="truncate max-w-[100px] text-foreground">{profile.name}</span>
+            <div className="flex items-center gap-1.5 bg-amber-100 border-2 border-[#2F3D4A] pl-1 pr-3 py-1 rounded-full text-xs font-black text-[#2F3D4A] shadow-[2px_2px_0px_0px_#2F3D4A]">
+              <span className="text-base leading-none">{profile.avatar}</span>
+              <span className="truncate max-w-[90px]">{profile.name}</span>
             </div>
           )}
         </div>
 
-        <div className="mb-6 rounded-2xl border border-white/8 bg-white/[0.03] p-5">
-          <p className="text-sm leading-7 text-white/72">
+        <div className="rounded-2xl border-2 border-[#2F3D4A] bg-amber-50 p-4 shadow-inner">
+          <p className="text-sm font-bold leading-6 text-slate-700">
             지금까지 얼마나 진행했는지 확인하고, 원하는 주차를 바로 눌러 학습 페이지로 이동할 수 있습니다.
           </p>
         </div>
 
-        <div className="flex gap-2 mb-4 bg-background/50 p-1 rounded-xl">
+        <div className="flex gap-2 bg-slate-100 border-2 border-[#2F3D4A] p-1 rounded-xl">
           <button
             onClick={() => setActiveTab("MBTI")}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === "MBTI" ? "bg-primary text-white shadow-md" : "text-muted-foreground hover:text-white"}`}
+            className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${activeTab === "MBTI" ? "bg-primary text-white border border-[#2F3D4A] shadow-sm" : "text-slate-600 hover:text-primary"}`}
           >
             MBTI Maker
           </button>
           <button
             onClick={() => setActiveTab("POSE")}
-            className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${activeTab === "POSE" ? "bg-blue-600 text-white shadow-md" : "text-muted-foreground hover:text-white"}`}
+            className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${activeTab === "POSE" ? "bg-sky-500 text-white border border-[#2F3D4A] shadow-sm" : "text-slate-600 hover:text-sky-500"}`}
           >
             Pose Game
           </button>
         </div>
 
-        <div className="space-y-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar flex-1 mb-4">
+        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar flex-1">
           {activeLabels.map((title, i) => (
             <button
               key={i}
               onClick={() => navigateToCourse(activeTab, i)}
-              className={`w-full text-left flex items-center justify-between p-3.5 rounded-2xl border transition-all font-sans group cursor-pointer hover:border-primary/40 ${activeProgress[i] ? "bg-primary/5 border-primary/20" : "bg-background/50 border-border/50"}`}
+              className={`w-full text-left flex items-center justify-between p-3 rounded-xl border-2 border-[#2F3D4A] transition-all font-sans group cursor-pointer ${activeProgress[i] ? "bg-orange-50" : "bg-white hover:bg-slate-50"}`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${activeProgress[i] ? "bg-primary border-primary" : "border-muted-foreground/30 group-hover:border-primary/50"}`}>
+              <div className="flex items-center gap-2">
+                <div className={`w-5 h-5 rounded-md border-2 border-[#2F3D4A] flex items-center justify-center transition-colors shrink-0 ${activeProgress[i] ? "bg-primary" : "bg-white"}`}>
                   {activeProgress[i] && (
                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
                 </div>
-                <span className={`text-sm font-bold transition-colors truncate pr-2 ${activeProgress[i] ? "text-muted-foreground line-through decoration-primary/50" : "text-foreground group-hover:text-primary"}`}>
+                <span className={`text-sm font-black transition-colors truncate pr-2 ${activeProgress[i] ? "text-slate-400 line-through decoration-[#2F3D4A]/30" : "text-[#2F3D4A] group-hover:text-primary"}`}>
                   {title}
                 </span>
               </div>
 
               {activeProgress[i] ? (
-                <span className="text-primary font-black text-[10px] bg-primary/10 px-2 py-1 rounded-md shrink-0">완료</span>
+                <span className="text-[#2F3D4A] font-black text-[10px] bg-amber-200 border border-[#2F3D4A] px-2 py-0.5 rounded-md shrink-0">완료</span>
               ) : (
-                <div className="w-4 h-4 rounded-full border border-muted-foreground/30 shrink-0" />
+                <div className="w-4 h-4 rounded-full border-2 border-[#2F3D4A]/40 shrink-0" />
               )}
             </button>
           ))}
         </div>
 
-        <div className="relative z-10 space-y-3 pt-4 border-t border-border/50 shrink-0">
-          <div className="flex justify-between items-end text-[9px] font-black tracking-widest uppercase text-muted-foreground">
-            <div className="flex items-center gap-1.5">
+        <div className="relative z-10 space-y-2 pt-3 border-t-2 border-[#2F3D4A] shrink-0">
+          <div className="flex justify-between items-end text-[10px] font-black tracking-wider uppercase text-slate-500">
+            <div className="flex items-center gap-1">
               <span>{activeTab} Progress</span>
               {isLoadingProgress && (
                 <span className="flex items-center gap-1 text-primary animate-pulse">
-                  <svg className="animate-spin h-2.5 w-2.5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="#2F3D4A" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  SYNCING...
                 </span>
               )}
             </div>
-            <span className={`${activeTab === "MBTI" ? "text-primary" : "text-blue-500"} italic font-black`}>
-              {`${Math.round(progressPercentage)}% COMPLETE`}
+            <span className={`${activeTab === "MBTI" ? "text-primary" : "text-sky-600"} font-black`}>
+              {`${Math.round(progressPercentage)}%`}
             </span>
           </div>
-          <div className="relative h-2 w-full bg-secondary rounded-full overflow-hidden shadow-inner">
+          <div className="relative h-3 w-full bg-slate-100 border-2 border-[#2F3D4A] rounded-full overflow-hidden shadow-inner">
             <div
-              className={`h-full rounded-full transition-all duration-1000 shadow-sm ease-out relative ${activeTab === "MBTI" ? "bg-primary shadow-primary/30" : "bg-blue-500 shadow-blue-500/30"}`}
+              className={`h-full rounded-full transition-all duration-700 ease-out relative ${activeTab === "MBTI" ? "bg-primary" : "bg-sky-500"}`}
               style={{ width: `${progressPercentage}%` }}
             >
-              {/* 로딩 중일 때 빛이 지나가는 스캔 효과 */}
               {isLoadingProgress && (
                 <div className="absolute inset-0 w-full h-full animate-[progress-scan_1.5s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent" />
               )}
             </div>
           </div>
-
-          {/* 더 크게 강조하는 동기화 배지 */}
-          {isLoadingProgress && (
-            <div className="absolute -top-12 right-0 bg-primary/20 backdrop-blur-md border border-primary/30 px-3 py-1.5 rounded-full flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex space-x-0.5">
-                <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-              </div>
-              <span className="text-[10px] font-black text-primary uppercase tracking-tighter">Google Sheet Syncing...</span>
-            </div>
-          )}
         </div>
       </div>
     </div>

@@ -42,10 +42,10 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
             <div className="pointer-events-none absolute inset-x-0 top-0 h-[300px] bg-[radial-gradient(circle_at_top_right,rgba(129,140,248,0.15),transparent_40%)]" />
 
             {/* Navigation Header */}
-            <header className="sticky top-0 inset-x-0 z-40 flex h-20 items-center border-b border-white/10 bg-background/60 px-6 backdrop-blur-2xl">
+            <header className="sticky top-0 inset-x-0 z-40 flex h-20 items-center border-b border-[#2F3D4A]/10 bg-white/80 px-6 backdrop-blur-2xl">
                 <div className="max-w-5xl mx-auto w-full flex items-center justify-between">
-                    <Link href="/" className="group text-sm font-bold text-muted-foreground hover:text-primary transition-all flex items-center gap-2">
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/5 group-hover:bg-primary/10 transition-colors">←</span>
+                    <Link href="/study-lab" className="group text-sm font-bold text-slate-600 hover:text-primary transition-all flex items-center gap-2">
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 group-hover:bg-primary/10 transition-colors">←</span>
                         My Study Lab
                     </Link>
                     {!errorLoading && (
@@ -57,14 +57,14 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
             <div className="relative mx-auto max-w-5xl px-6 pt-12">
                 <section className="pb-16">
                     <div className="max-w-3xl">
-                        <p className="text-[12px] font-black uppercase tracking-[0.4em] text-primary/70 mb-4 ml-1">MBTI Science Lab</p>
+                        <p className="text-[12px] font-black uppercase tracking-[0.4em] text-primary mb-4 ml-1">MBTI Science Lab</p>
                         <div className="flex items-start gap-6">
                             <div className="mt-1.5 h-20 w-1.5 rounded-full bg-gradient-to-b from-primary via-primary/40 to-transparent" />
                             <div>
-                                <h1 className="text-[clamp(2.5rem,5vw,5rem)] font-black tracking-tight text-white leading-[1.1]">
+                                <h1 className="text-[clamp(2.5rem,5vw,5rem)] font-black tracking-tight text-[#2F3D4A] leading-[1.1]">
                                     {mbtiWeekNum}주차 학습 가이드
                                 </h1>
-                                <p className="mt-6 max-w-2xl text-[17px] leading-8 text-muted-foreground font-medium">
+                                <p className="mt-6 max-w-2xl text-[17px] leading-8 text-slate-600 font-medium">
                                     이번 주 학습 목표를 먼저 확인하고 실습을 진행해 보세요.<br/>
                                     모든 실습을 마친 후 우측 상단의 <span className="text-primary font-bold">제출하기</span> 버튼을 눌러 결과물을 공유해 주세요.
                                 </p>
@@ -73,39 +73,17 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
                     </div>
                 </section>
 
-                <div className="grid grid-cols-1 lg:grid-cols-[1fr,280px] gap-12">
+                <div className="max-w-3xl">
                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        <MarkdownContent content={content} className="max-w-none prose-invert" />
+                        <MarkdownContent content={content} className="max-w-none" />
                         
                         {/* Submission Section Integration */}
                         {!errorLoading && (
-                            <div className="mt-24 pt-24 border-t border-white/5">
+                            <div className="mt-24 pt-24 border-t border-[#2F3D4A]/10">
                                 <UploadHomework weekId={mbtiWeekNum} />
                             </div>
                         )}
                     </div>
-
-                    {!errorLoading && (
-                        <aside className="hidden lg:block">
-                            <div className="sticky top-32 p-8 rounded-[32px] border border-white/10 bg-white/5 backdrop-blur-sm space-y-6">
-                                <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center text-2xl border border-primary/20">
-                                    🎯
-                                </div>
-                                <div>
-                                    <h4 className="font-black text-lg">실습 완료?</h4>
-                                    <p className="text-sm text-muted-foreground mt-2 font-medium leading-relaxed">
-                                        결과물 파일을 압축하여 지금 바로 제출하세요!
-                                    </p>
-                                </div>
-                                <SidebarSubmitButton weekId={mbtiWeekNum} />
-                                <div className="pt-4 border-t border-white/10">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-center opacity-60">
-                                        Auto Filename Protection On
-                                    </p>
-                                </div>
-                            </div>
-                        </aside>
-                    )}
                 </div>
             </div>
 

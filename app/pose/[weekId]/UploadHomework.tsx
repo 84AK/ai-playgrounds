@@ -113,37 +113,40 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
     };
 
     return (
-        <section className="relative overflow-hidden rounded-[30px] border border-white/8 bg-white/[0.035] p-8 shadow-[0_18px_60px_rgba(0,0,0,0.22)] backdrop-blur-sm">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/14 via-blue-500/[0.03] to-transparent" />
-            <div className="relative flex items-center gap-3 mb-6">
-                <div className="w-11 h-11 rounded-2xl bg-blue-500/15 flex items-center justify-center text-xl border border-blue-400/20">
+        <section className="relative overflow-hidden rounded-[40px] border-2 border-[#2F3D4A] bg-white p-8 shadow-[6px_6px_0px_0px_#2F3D4A]">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-500/10 via-blue-500/[0.02] to-transparent" />
+            <div className="relative flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center text-2xl border-2 border-[#2F3D4A] shadow-[2px_2px_0px_0px_#2F3D4A]">
                     📤
                 </div>
                 <div>
-                    <p className="text-[11px] font-black uppercase tracking-[0.3em] text-white/45">Next Action</p>
-                    <h3 className="mt-1 text-xl font-black">{weekId}주차 과제 제출</h3>
-                    <p className="text-sm text-white/58 font-medium">실습한 티처블 머신 모델 링크(.txt)나 코드를 업로드하세요.</p>
+                    <p className="text-[11px] font-black uppercase tracking-[0.3em] text-blue-600">Next Action</p>
+                    <h3 className="mt-1 text-xl font-black text-[#2F3D4A]">{weekId}주차 과제 제출</h3>
+                    <p className="text-sm text-slate-600 font-medium">실습한 티처블 머신 모델 링크(.txt)나 코드를 업로드하세요.</p>
                 </div>
             </div>
 
             <div className="relative space-y-4">
-                <div className="border border-white/10 p-6 rounded-[24px] flex flex-col items-center justify-center gap-4 bg-black/20 hover:bg-black/25 transition-colors relative">
+                <div className="border-2 border-dashed border-[#2F3D4A]/20 p-8 rounded-[32px] flex flex-col items-center justify-center gap-4 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/50 transition-all duration-300 relative cursor-pointer min-h-[200px]">
                     <input
                         type="file"
                         onChange={handleFileChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         accept=".html,.css,.js,.zip,.json,.md,.txt"
                     />
                     {file ? (
-                        <div className="flex flex-col items-center gap-2 text-blue-400 font-bold">
-                            <span className="text-2xl">📄</span>
-                            <span>{file.name} ({(file.size / 1024).toFixed(1)} KB)</span>
+                        <div className="flex flex-col items-center gap-2 text-blue-600 font-bold animate-in zoom-in-95 duration-200">
+                            <span className="text-3xl">📄</span>
+                            <span className="text-[#2F3D4A]">{file.name}</span>
+                            <span className="text-xs text-slate-400">({(file.size / 1024).toFixed(1)} KB)</span>
                         </div>
                     ) : (
-                        <div className="flex flex-col items-center gap-2 text-white/60 text-sm">
-                            <span className="text-2xl">👇</span>
-                            <span>여기를 클릭하거나 파일을 드래그하여 첨부하세요.</span>
-                            <span className="text-xs opacity-60">지원 파일: txt, html, css, js, zip 등</span>
+                        <div className="flex flex-col items-center gap-2 text-slate-500 text-sm">
+                            <div className="w-16 h-16 rounded-3xl bg-slate-100 flex items-center justify-center text-3xl mb-1 border-2 border-[#2F3D4A]/10 transition-all group-hover:border-blue-400 group-hover:bg-blue-50 group-hover:text-blue-500">
+                                👇
+                            </div>
+                            <span className="font-bold text-[#2F3D4A]/90">여기를 클릭하거나 파일을 드래그하여 첨부하세요</span>
+                            <span className="text-xs text-slate-400 font-medium">지원 파일: txt, html, css, js, zip 등</span>
                         </div>
                     )}
                 </div>
@@ -155,7 +158,7 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
                 <button
                     onClick={handleUpload}
                     disabled={isUploading || !file}
-                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-500 transition-colors flex justify-center items-center gap-2 shadow-lg shadow-blue-500/20"
+                    className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black disabled:opacity-30 disabled:cursor-not-allowed transition-all flex justify-center items-center gap-2 border-2 border-[#2F3D4A] shadow-[4px_4px_0px_0px_#2F3D4A]"
                 >
                     {isUploading ? (
                         <>

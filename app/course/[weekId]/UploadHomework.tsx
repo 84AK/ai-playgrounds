@@ -119,20 +119,20 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
 
     return (
         <section id="submission-section" className="relative w-full max-w-4xl mx-auto mt-24 scroll-mt-32">
-            <div className="relative overflow-hidden rounded-[48px] border border-white/10 bg-card/40 backdrop-blur-xl p-8 md:p-12 shadow-2xl">
+            <div className="relative overflow-hidden rounded-[40px] border-2 border-[#2F3D4A] bg-white p-8 md:p-12 shadow-[6px_6px_0px_0px_#2F3D4A]">
                 {/* Background Glow */}
-                <div className="pointer-events-none absolute -top-24 -right-24 w-64 h-64 bg-primary/20 rounded-full blur-[100px]" />
-                <div className="pointer-events-none absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px]" />
+                <div className="pointer-events-none absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[100px]" />
+                <div className="pointer-events-none absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-500/5 rounded-full blur-[100px]" />
 
                 <div className="relative mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
                     <div className="flex items-center gap-6">
-                        <div className="w-16 h-16 rounded-[24px] bg-primary/15 flex items-center justify-center text-3xl border border-primary/20 shadow-inner">
+                        <div className="w-16 h-16 rounded-[24px] bg-amber-100 flex items-center justify-center text-3xl border-2 border-[#2F3D4A] shadow-[2px_2px_0px_0px_#2F3D4A]">
                             🚀
                         </div>
                         <div>
-                        <p className="text-[12px] font-black uppercase tracking-[0.4em] text-primary/70 mb-1">Submission Area</p>
-                            <h3 className="text-3xl font-black text-white">{weekId}주차 결과물 제출하기</h3>
-                            <p className="mt-1 text-[16px] text-muted-foreground font-medium">완성된 프로젝트를 구글 드라이브에 안전하게 보관합니다.</p>
+                        <p className="text-[12px] font-black uppercase tracking-[0.4em] text-primary mb-1">Submission Area</p>
+                            <h3 className="text-3xl font-black text-[#2F3D4A]">{weekId}주차 결과물 제출하기</h3>
+                            <p className="mt-1 text-[16px] text-slate-600 font-medium">완성된 프로젝트를 구글 드라이브에 안전하게 보관합니다.</p>
                         </div>
                     </div>
                 </div>
@@ -140,7 +140,7 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                 <div className="grid grid-cols-1 xl:grid-cols-[1fr,400px] gap-12">
                     {/* Left: Upload Area */}
                     <div className="space-y-6">
-                        <div className="group relative border-2 border-dashed border-white/10 p-12 rounded-[40px] flex flex-col items-center justify-center gap-6 bg-black/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-500 cursor-pointer overflow-hidden min-h-[320px]">
+                        <div className="group relative border-2 border-dashed border-[#2F3D4A]/20 p-12 rounded-[40px] flex flex-col items-center justify-center gap-6 bg-slate-50 hover:border-primary/40 hover:bg-primary/5 transition-all duration-500 cursor-pointer overflow-hidden min-h-[320px]">
                             <input
                                 type="file"
                                 onChange={handleFileChange}
@@ -165,12 +165,12 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-4 text-muted-foreground transition-transform group-hover:scale-105 duration-500">
-                                    <div className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-4xl mb-2 border border-white/5 transition-all group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary">
+                                    <div className="w-20 h-20 rounded-3xl bg-slate-100 flex items-center justify-center text-4xl mb-2 border-2 border-[#2F3D4A]/10 transition-all group-hover:border-primary/20 group-hover:bg-primary/5 group-hover:text-primary">
                                         📤
                                     </div>
                                     <div className="text-center">
-                                        <span className="block font-black text-lg text-white/90 group-hover:text-primary transition-colors">여기를 클릭하거나 파일을 드래그하세요</span>
-                                        <span className="block text-sm opacity-50 mt-1 font-medium">zip, html, js, css 등 지원</span>
+                                        <span className="block font-black text-lg text-[#2F3D4A] group-hover:text-primary transition-colors">여기를 클릭하거나 파일을 드래그하세요</span>
+                                        <span className="block text-sm text-slate-500 mt-1 font-medium">zip, html, js, css 등 지원</span>
                                     </div>
                                 </div>
                             )}
@@ -185,7 +185,7 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                         <button
                             onClick={handleUpload}
                             disabled={isUploading || !file}
-                            className="w-full py-6 bg-primary text-white rounded-[24px] text-lg font-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 transition-all flex justify-center items-center gap-4 shadow-2xl shadow-primary/20 relative group overflow-hidden"
+                            className="w-full py-6 bg-primary text-white rounded-[24px] text-lg font-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 transition-all flex justify-center items-center gap-4 border-2 border-[#2F3D4A] shadow-[4px_4px_0px_0px_#2F3D4A] relative group overflow-hidden"
                         >
                             <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
                             {isUploading ? (

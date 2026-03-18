@@ -58,54 +58,36 @@ export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) 
     }, [nickname]);
 
     const renderStep = (step: typeof mbtiSteps[0], isCompleted: boolean, downloadUrl?: string) => (
-        <div key={step.key} className="flex items-center justify-between p-4 rounded-2xl border border-white/5 bg-background/40">
+        <div key={step.key} className="flex items-center justify-between p-4 rounded-xl border-2 border-[#2F3D4A] bg-white shadow-[2px_2px_0px_0px_#2F3D4A]">
             <div className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${isCompleted ? "bg-emerald-500 text-white" : "bg-white/10 text-white/40"}`}>
+                <div className={`w-6 h-6 rounded-full border-2 border-[#2F3D4A] flex items-center justify-center text-[11px] font-black ${isCompleted ? "bg-emerald-400 text-white" : "bg-white text-[#2F3D4A]"}`}>
                     {isCompleted ? "✓" : "○"}
                 </div>
-                <span className={`text-sm font-bold ${isCompleted ? "text-white" : "text-white/40"}`}>{step.label}</span>
+                <span className={`text-sm font-black ${isCompleted ? "text-slate-400 line-through decoration-[#2F3D4A]/30" : "text-[#2F3D4A]"}`}>{step.label}</span>
             </div>
 
             {isCompleted ? (
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg uppercase">Submitted</span>
+                    <span className="text-[10px] font-black text-[#2F3D4A] bg-amber-200 border border-[#2F3D4A] px-2 py-0.5 rounded-md uppercase">완료</span>
                     {downloadUrl && (
-                        <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-primary bg-primary/10 px-2 py-1 rounded-lg uppercase hover:bg-primary hover:text-white transition-colors">
-                            Download
+                        <a href={downloadUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-amber-900 bg-amber-300 border border-amber-900 px-2 py-0.5 rounded-md uppercase hover:bg-amber-400 transition-colors">
+                            다운로드
                         </a>
                     )}
                 </div>
             ) : (
-                <span className="text-[10px] font-black text-white/20 uppercase">Pending</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase">대기 중</span>
             )}
         </div>
     );
 
-    if (isLoading) return <div className="h-48 flex items-center justify-center text-muted-foreground animate-pulse">데이터 불러오는 중...</div>;
+    if (isLoading) return <div className="h-48 flex items-center justify-center text-[#2F3D4A] font-black animate-pulse">데이터 불러오는 중...</div>;
 
     return (
         <div className="space-y-6 relative">
-            {/* 동기화 상태 플로팅 배지 */}
-            {isLoading && (
-                <div className="absolute -top-10 right-0 bg-primary/20 backdrop-blur-md border border-primary/30 px-4 py-2 rounded-full flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 z-10">
-                    <div className="flex space-x-1">
-                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
-                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                    </div>
-                    <span className="text-xs font-black text-primary uppercase tracking-tight">Syncing with Lab Server...</span>
-                </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bento-item p-6 border-white/5 bg-secondary/5 relative overflow-hidden group">
-                    {/* 로딩 중일 때 카드 상단에 흐르는 선 효과 */}
-                    {isLoading && (
-                        <div className="absolute top-0 left-0 w-full h-[2px] bg-primary/30 overflow-hidden">
-                            <div className="w-full h-full animate-[progress-scan_2s_infinite] bg-gradient-to-r from-transparent via-primary to-transparent" />
-                        </div>
-                    )}
-                    <h4 className="text-sm font-black mb-4 flex items-center gap-2">
+                <div className="bento-item p-6 border-2 border-[#2F3D4A] bg-white relative overflow-hidden group">
+                    <h4 className="text-base font-black mb-4 flex items-center gap-2 text-[#2F3D4A]">
                         <span className="text-primary italic">01</span> MBTI Maker 과제
                     </h4>
                     <div className="space-y-2">
@@ -113,15 +95,9 @@ export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) 
                     </div>
                 </div>
 
-                <div className="bento-item p-6 border-white/5 bg-secondary/5 relative overflow-hidden group">
-                    {/* 로딩 중일 때 카드 상단에 흐르는 선 효과 */}
-                    {isLoading && (
-                        <div className="absolute top-0 left-0 w-full h-[2px] bg-blue-500/30 overflow-hidden">
-                            <div className="w-full h-full animate-[progress-scan_2s_infinite] bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
-                        </div>
-                    )}
-                    <h4 className="text-sm font-black mb-4 flex items-center gap-2">
-                        <span className="text-blue-500 italic">02</span> Pose Game 과제
+                <div className="bento-item p-6 border-2 border-[#2F3D4A] bg-white relative overflow-hidden group">
+                    <h4 className="text-base font-black mb-4 flex items-center gap-2 text-[#2F3D4A]">
+                        <span className="text-sky-500 italic">02</span> Pose Game 과제
                     </h4>
                     <div className="space-y-2">
                         {poseSteps.map(step => renderStep(step, !!progress?.[step.key as keyof ProgressData], (progress as any)?.[`${step.key}_url`]))}
