@@ -158,7 +158,59 @@ export default function Home() {
             {/* Row 2, Column 2: My Study Lab (Dual Track) */}
             <StudyLabPanel highlighted={isHighlighted} />
 
+            {/* Row 3: Class Prep & Tools Dashboard */}
+            {/* Column 1: Account Prep */}
+            <div className="bento-item min-h-[320px] flex flex-col justify-between overflow-hidden bg-gradient-to-br from-indigo-950/20 via-transparent to-transparent border-indigo-500/10">
+              <div className="relative z-10 space-y-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 text-[10px] font-black rounded-full uppercase">Getting Started</div>
+                <h3 className="text-2xl md:text-3xl font-black tracking-tighter">🔑 수업 전 필수<br />계정 생성 가이드</h3>
+                <p className="text-muted-foreground text-sm font-medium leading-relaxed">
+                  원활한 수업과 실습 진행을 위해 필수 코딩 계정들을 준비하는 가이드입니다.
+                </p>
+              </div>
+              <Link 
+                href="https://ai-student-id.vercel.app/"
+                target="_blank"
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-sm text-center shadow-xl hover:shadow-indigo-600/50 hover:scale-[1.02] active:scale-95 transition-all mt-8"
+              >
+                가이드 확인하기 →
+              </Link>
+              <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl -z-10" />
+            </div>
+
+            {/* Column 2: Dashboard Links */}
+            <div className="bento-item min-h-[320px] flex flex-col justify-between overflow-hidden">
+              <div className="relative z-10 space-y-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black rounded-full uppercase">Analytics & Tools</div>
+                <h3 className="text-2xl md:text-3xl font-black tracking-tighter">📊 학습 기록 및<br />플레이그라운드 연동</h3>
+                <p className="text-muted-foreground text-sm font-medium leading-relaxed">
+                  나의 실습 현황과 프로젝트 배포 사이트들을 빠르게 모니터링하세요.
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mt-8">
+                <Link 
+                  href="https://activity-log-six.vercel.app/"
+                  target="_blank"
+                  className="p-4 bg-white/5 dark:bg-black/20 hover:bg-white/10 dark:hover:bg-black/40 rounded-2xl border border-white/5 hover:border-emerald-500/30 shadow-inner group transition-all flex flex-col items-center justify-center text-center gap-2"
+                >
+                  <span className="text-2xl">📝</span>
+                  <span className="text-xs font-extrabold group-hover:text-emerald-500 transition-colors">Activity Log</span>
+                </Link>
+                <Link 
+                  href="https://ai-playgrounds.vercel.app/"
+                  target="_blank"
+                  className="p-4 bg-white/5 dark:bg-black/20 hover:bg-white/10 dark:hover:bg-black/40 rounded-2xl border border-white/5 hover:border-emerald-500/30 shadow-inner group transition-all flex flex-col items-center justify-center text-center gap-2"
+                >
+                  <span className="text-2xl">🌐</span>
+                  <span className="text-xs font-extrabold group-hover:text-emerald-500 transition-colors">Playgrounds</span>
+                </Link>
+              </div>
+              <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl -z-10" />
+            </div>
+
           </div>
+
         </div>
       </section>
     </div>
