@@ -169,6 +169,21 @@ export default function GlobalAuthGuard() {
         };
 
         try {
+            // 이중 방어 로직: 최종 등록 전 한 번 더 해당 이름이 존재하는지 검사
+            const existingProfile = await fetchUserProfile(formData.name).then((profile) => ({
+                status: "success" as const,
+                data: profile,
+            })).catch(() => ({
+                status: "error" as const,
+                data: null,
+            }));
+
+            if (existingProfile.status === "success" && existingProfile.data) {
+                setAlertMessage("가입 진행 중 다른 사용자가 같은 이름으로 등록했습니다. 다른 이름을 사용해주세요!");
+                setIsLoading(false);
+                return;
+            }
+
             await registerUser(payload);
             const verifiedProfile = await fetchUserProfile(payload.name);
             writeLocalProfile(verifiedProfile);
