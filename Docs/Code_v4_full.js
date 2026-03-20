@@ -27,7 +27,13 @@ function getKoreanTime() {
    [POST] 데이터 업로드 / 수정 / 삭제
    ========================================================= */
 function doPost(e) {
+  // 🔒 [통합 추가] 동시성 충돌 방지 락(Lock) 개방
+  const lock = LockService.getScriptLock();
+  
   try {
+    // 동시 요청이 있을 때 최대 20초간 줄을 서게 함 (데이터 꼬임 방지)
+    lock.waitLock(20000); 
+
     if (!e.postData || !e.postData.contents) return createJSONResponse({ error: "No post content" }, 400);
     let data = JSON.parse(e.postData.contents);
     const action = data.action;
@@ -109,7 +115,12 @@ function doPost(e) {
     }
 
     return createJSONResponse({ error: "Invalid Action" }, 400);
-  } catch (error) { return createJSONResponse({ error: "Server Error", details: error.toString() }, 500); }
+  } catch (error) { 
+    return createJSONResponse({ error: "Server Error", details: error.toString() }, 500); 
+  } finally {
+    // 🔒 [통합 추가] 작업 끝난 후 락 해제
+    lock.releaseLock();
+  }
 }
 
 /* =========================================================
@@ -234,4 +245,7 @@ function updateUserProgress(userId, courseType, weekNum, status, fileUrl = "") {
     const newRow = Array(17).fill(""); newRow[0] = userId; newRow[colIndex - 1] = status; newRow[urlColIndex - 1] = fileUrl;
     sheet.appendRow(newRow);
   }
+
+  // ⚡ [통합 추가] 스프레드시트 업데이트 즉시 반영 강제화 (동기화 딜레이 방지)
+  SpreadsheetApp.flush();
 }
