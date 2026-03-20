@@ -46,6 +46,13 @@ export default function UploadHomework({ weekId }: { weekId: number }) {
             return;
         }
 
+        // 🛡️ [추가] 파일 크기 제한 (20MB) - Apps Script 과부하 방지
+        const MAX_SIZE = 20 * 1024 * 1024; 
+        if (file.size > MAX_SIZE) {
+            setErrorMsg("파일 크기가 너무 큽니다. 20MB 이하의 파일만 제출할 수 있습니다.");
+            return;
+        }
+
         setIsUploading(true);
         setErrorMsg("");
 
