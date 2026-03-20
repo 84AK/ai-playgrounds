@@ -1,6 +1,6 @@
 /* ==============================================================
-   MBTI Maker & My Study Lab 통합 백엔드 API V4_Final 
-   (과제 관리 강화 & 강의 교안 자동 복구 통합 버전)
+   MBTI Maker & My Study Lab 통합 백엔드 API V4_Final_Real 
+   (과제 관리 강화 및 실시간 파일 존재 검증 통합 버전)
    ============================================================== */
 
 const SHEET_MBTI_QUESTIONS = "Questions";
@@ -8,9 +8,9 @@ const SHEET_MBTI_RESULTS = "Results";
 const SHEET_PROGRESS = "Progress";
 const SHEET_SHOWCASE_LINKS = "ShowcaseLinks"; 
 const SHEET_USERS = "Users"; 
-const COURSE_SHEET_NAME = "course_contents"; // 📚 강의 교안용 시트
+const COURSE_SHEET_NAME = "course_contents"; 
 
-// 🚨 [필수 확인] 여기에 실습 코드를 받을 구글 드라이브 폴더 ID를 붙여넣으세요!
+// 🚨 [필수 확인] 여기에 반드시 실습 코드를 받을 구글 드라이브 폴더 ID를 붙여넣으세요!
 const TARGET_FOLDER_ID = "여기에_폴더_아이디_입력하세요";
 
 function doOptions(e) { return handleCORS(); }
@@ -93,7 +93,7 @@ function doPost(e) {
       } catch (err) { return createJSONResponse({ status: "error", message: err.toString() }, 500); }
     }
 
-    // 📚 1-3. [통합 추가] 강의 콘텐츠 저장
+    // 📚 1-3. 강의 콘텐츠 저장
     if (action === 'saveCourseContent') {
       const { track, week, content } = data;
       let cSheet = ss.getSheetByName(COURSE_SHEET_NAME) || ss.insertSheet(COURSE_SHEET_NAME);
@@ -106,30 +106,6 @@ function doPost(e) {
       if (foundRow !== -1) { cSheet.getRange(foundRow, 3).setValue(content); cSheet.getRange(foundRow, 4).setValue(getKoreanTime()); } 
       else { cSheet.appendRow([track, Number(week), content, getKoreanTime()]); }
       return createJSONResponse({ status: "success", message: "Course content saved" });
-    }
-
-    // 2. 쇼케이스 관련 등록/수정/삭제 등 기존 코드 복구 유지...
-    if (action === 'registerShowcaseLink') {
-      const { author, title, description, url, password, type } = data;
-      let sheet = ss.getSheetByName(SHEET_SHOWCASE_LINKS) || ss.insertSheet(SHEET_SHOWCASE_LINKS);
-      sheet.appendRow([getKoreanTime(), author, title, description || "", url, password, type || "CUSTOM"]);
-      return createJSONResponse({ status: "success" });
-    }
-
-    // 4. MBTI 전체 프로젝트 저장
-    if (action === 'saveMbti') {
-      const { author, password, type, questions, results } = data;
-      let qSheet = ss.getSheetByName(SHEET_MBTI_QUESTIONS) || ss.insertSheet(SHEET_MBTI_QUESTIONS);
-      let qData = qSheet.getDataRange().getValues();
-      for (let i = qData.length - 1; i >= 1; i--) { if (String(qData[i][0]) === String(author)) qSheet.deleteRow(i + 1); }
-      questions.forEach((q) => { qSheet.appendRow([author, type, q.text, q.trait1, q.option1, q.trait2, q.option2, getKoreanTime()]); });
-
-      let rSheet = ss.getSheetByName(SHEET_MBTI_RESULTS) || ss.insertSheet(SHEET_MBTI_RESULTS);
-      let rData = rSheet.getDataRange().getValues();
-      for (let i = rData.length - 1; i >= 1; i--) { if (String(rData[i][0]) === String(author)) rSheet.deleteRow(i + 1); }
-      results.forEach((r) => { rSheet.appendRow([author, r.type, r.name, r.description, r.strengths, r.compatibility, r.character, getKoreanTime()]); });
-
-      return createJSONResponse({ status: "success", message: "MBTI project saved" });
     }
 
     return createJSONResponse({ error: "Invalid Action" }, 400);
@@ -156,7 +132,7 @@ function doGet(e) {
       return createJSONResponse({ status: "error", message: "User not found" }, 404);
     }
 
-    // 2. 통합 학습 달성도(Progress) 불러오기 (다운로드 URL 추가 및 Fallback 기능 통합)
+    // 2. 통합 학습 달성도(Progress) 불러오기 (실시간 파일 검증 포함)
     if (action === "getProgress") {
       const user_id = params.user_id;
       if (!user_id) return createJSONResponse({ error: "Missing user_id parameter" }, 400);
@@ -183,15 +159,28 @@ function doGet(e) {
 
           const folder = DriveApp.getFolderById(TARGET_FOLDER_ID);
           for (let weekId = 1; weekId <= 4; weekId++) {
-            if (userData[`mbti_week${weekId}`] && !userData[`mbti_week${weekId}_url`]) {
+            
+            // 🔍 MBTI : 파일 존재 여부 실시간 검증 (드라이브에서 수동 삭제 대응)
+            if (userData[`mbti_week${weekId}`]) {
               const query = `title contains '${weekId}주차_' and title contains '${user_id}' and trashed = false`;
               const files = folder.searchFiles(query);
-              if (files.hasNext()) userData[`mbti_week${weekId}_url`] = files.next().getDownloadUrl();
+              if (files.hasNext()) {
+                userData[`mbti_week${weekId}_url`] = files.next().getDownloadUrl(); 
+              } else {
+                userData[`mbti_week${weekId}_url`] = ""; // 없으면 제거
+                // 필요시 시트 동기화 update 가능
+              }
             }
-            if (userData[`pose_week${weekId}`] && !userData[`pose_week${weekId}_url`]) {
+
+            // 🔍 Pose : 파일 존재 여부 실시간 검증
+            if (userData[`pose_week${weekId}`]) {
               const query = `title contains '${weekId}주차_' and title contains '${user_id}' and trashed = false`;
               const files = folder.searchFiles(query);
-              if (files.hasNext()) userData[`pose_week${weekId}_url`] = files.next().getDownloadUrl();
+              if (files.hasNext()) {
+                userData[`pose_week${weekId}_url`] = files.next().getDownloadUrl();
+              } else {
+                userData[`pose_week${weekId}_url`] = "";
+              }
             }
           }
         }
@@ -199,12 +188,11 @@ function doGet(e) {
       return createJSONResponse({ status: "success", data: userData });
     }
 
-    // 📚 3. [통합 추가] 강의 콘텐츠 조회
+    // 📚 3. 강의 콘텐츠 조회
     if (action === 'getCourseContent') {
       const { track, week } = params;
       const cSheet = ss.getSheetByName(COURSE_SHEET_NAME);
       if (!cSheet) return createJSONResponse({ status: "success", content: "" }); 
-      
       const rows = cSheet.getDataRange().getValues();
       for (let i = 1; i < rows.length; i++) {
         if (rows[i][0] === track && Number(rows[i][1]) === Number(week)) { return createJSONResponse({ status: "success", content: rows[i][2] }); }
