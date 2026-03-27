@@ -125,6 +125,7 @@ export default function GlobalAuthGuard() {
                         classGroup: result.data.classGroup,
                         password: dbPassword,
                         avatar: result.data.avatar,
+                        feedback: result.data.feedback || "",
                     };
                     writeLocalProfile(profile);
                     setStep("authenticated");

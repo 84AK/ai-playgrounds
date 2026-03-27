@@ -33,22 +33,9 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
   const [mbtiProgress, setMbtiProgress] = useState([false, false, false, false, false]);
   const [poseProgress, setPoseProgress] = useState([false, false, false, false]);
   const [activeTab, setActiveTab] = useState<"MBTI" | "POSE">("MBTI");
+  const [detailedStatus, setDetailedStatus] = useState<Record<string, { status: string, fileName: string }>>({});
 
-  useEffect(() => {
-    if (!profile?.name) return;
-
-    const cached = getCachedProgress(profile.name);
-    if (cached) {
-      applyProgressData(cached.data);
-      if (isCacheStale(cached)) {
-        fetchUserProgress(profile.name);
-      }
-    } else {
-      fetchUserProgress(profile.name);
-    }
-  }, [profile]);
-
-  const applyProgressData = (data: any) => {
+  const applyProgressData = (data: any, detailed: any = {}) => {
     setMbtiProgress([
       data.mbti_week0,
       data.mbti_week1,
@@ -62,14 +49,26 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
       data.pose_week3,
       data.pose_week4,
     ]);
+    setDetailedStatus(detailed || {});
   };
+
+  // [NEW] 컴포넌트가 열리거나 이름이 로드되면 자동으로 진도 새로고침
+  useEffect(() => {
+    if (profile?.name) {
+      fetchUserProgress(profile.name);
+    }
+  }, [profile?.name]);
 
   const fetchUserProgress = async (userName: string) => {
     setIsLoadingProgress(true);
     try {
-      const freshData = await fetchAndCacheProgress(userName);
-      if (freshData) {
-        applyProgressData(freshData);
+      const response = await fetch(APPS_SCRIPT_URL + "?" + new URLSearchParams({
+        action: "getProgress",
+        user_id: userName
+      }));
+      const res = await response.json();
+      if (res.status === "success") {
+        applyProgressData(res.data, res.detailed);
       }
     } catch (err) {
       console.error("Failed to fetch progress", err);
@@ -95,6 +94,16 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
   const activeLabels = activeTab === "MBTI" ? mbtiLabels : poseLabels;
   const progressPercentage = (activeProgress.filter(Boolean).length / activeProgress.length) * 100;
 
+  const getWeekStatus = (track: string, index: number) => {
+    const key = `${track.toLowerCase()}_week${track === "MBTI" ? index : index + 1}`;
+    const detailed = detailedStatus[key];
+    const baseProgress = activeProgress[index];
+
+    if (!baseProgress) return { icon: null, text: "미제출", color: "text-slate-300" };
+    if (detailed?.status === "format_mismatch") return { icon: "⚠️", text: "형식 오류", color: "text-amber-500 bg-amber-50 border-amber-200" };
+    return { icon: "✅", text: "완료", color: "text-green-600 bg-green-50 border-green-200" };
+  };
+
   return (
     <div
       id="my-study-lab"
@@ -117,7 +126,7 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
 
         <div className="rounded-2xl border-2 border-[#2F3D4A] bg-amber-50 p-4 shadow-inner">
           <p className="text-sm font-bold leading-6 text-slate-700">
-            지금까지 얼마나 진행했는지 확인하고, 원하는 주차를 바로 눌러 학습 페이지로 이동할 수 있습니다.
+            실시간 과제 현황을 확인하세요. <span className="text-amber-600 font-black">⚠️</span> 아이콘이 뜨면 **프로필 정보를 정확히 입력**한 뒤, 해당 과제를 다시 업로드해 주세요!
           </p>
         </div>
 
@@ -137,32 +146,36 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
         </div>
 
         <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar flex-1">
-          {activeLabels.map((title, i) => (
-            <button
-              key={i}
-              onClick={() => navigateToCourse(activeTab, i)}
-              className={`w-full text-left flex items-center justify-between p-3 rounded-xl border-2 border-[#2F3D4A] transition-all font-sans group cursor-pointer ${activeProgress[i] ? "bg-orange-50" : "bg-white hover:bg-slate-50"}`}
-            >
-              <div className="flex items-center gap-2">
-                <div className={`w-5 h-5 rounded-md border-2 border-[#2F3D4A] flex items-center justify-center transition-colors shrink-0 ${activeProgress[i] ? "bg-primary" : "bg-white"}`}>
-                  {activeProgress[i] && (
-                    <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
+          {activeLabels.map((title, i) => {
+            const status = getWeekStatus(activeTab, i);
+            return (
+              <button
+                key={i}
+                onClick={() => navigateToCourse(activeTab, i)}
+                className={`w-full text-left flex items-center justify-between p-3 rounded-xl border-2 border-[#2F3D4A] transition-all font-sans group cursor-pointer ${activeProgress[i] ? "bg-white" : "bg-white hover:bg-slate-50"}`}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`w-5 h-5 rounded-md border-2 border-[#2F3D4A] flex items-center justify-center transition-colors shrink-0 ${status.icon === "✅" ? "bg-green-500" : status.icon === "⚠️" ? "bg-amber-500" : "bg-white"}`}>
+                    {status.icon === "✅" && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                    {status.icon === "⚠️" && (
+                      <span className="text-[10px] text-white font-black">!</span>
+                    )}
+                  </div>
+                  <span className={`text-sm font-black transition-colors truncate pr-2 ${status.icon === "✅" ? "text-slate-300 line-through decoration-[#2F3D4A]/30" : "text-[#2F3D4A] group-hover:text-primary"}`}>
+                    {title}
+                  </span>
                 </div>
-                <span className={`text-sm font-black transition-colors truncate pr-2 ${activeProgress[i] ? "text-slate-400 line-through decoration-[#2F3D4A]/30" : "text-[#2F3D4A] group-hover:text-primary"}`}>
-                  {title}
-                </span>
-              </div>
 
-              {activeProgress[i] ? (
-                <span className="text-[#2F3D4A] font-black text-[10px] bg-amber-200 border border-[#2F3D4A] px-2 py-0.5 rounded-md shrink-0">완료</span>
-              ) : (
-                <div className="w-4 h-4 rounded-full border-2 border-[#2F3D4A]/40 shrink-0" />
-              )}
-            </button>
-          ))}
+                <span className={`font-black text-[10px] border border-[#2F3D4A] px-2 py-0.5 rounded-md shrink-0 ${status.color}`}>
+                  {status.text}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="relative z-10 space-y-2 pt-3 border-t-2 border-[#2F3D4A] shrink-0">

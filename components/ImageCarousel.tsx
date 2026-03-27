@@ -29,11 +29,12 @@ export default function ImageCarousel({ images }: ImageCarouselProps) {
     // Helper to safely convert Google Drive URLs into embeddable direct links
     const convertGoogleDriveUrl = (url: string) => {
         const trimmed = url.trim();
-        // Match drive.google.com/uc?id=... or drive.google.com/file/d/.../view
+        // Match various drive formats: uc?id=, file/d/, or thumbnail?id=
         const ucMatch = trimmed.match(/drive\.google\.com\/uc\?.*?id=([^&/]+)/);
         const fileMatch = trimmed.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+        const thumbMatch = trimmed.match(/drive\.google\.com\/thumbnail\?.*?id=([^&/]+)/);
 
-        const id = (ucMatch && ucMatch[1]) || (fileMatch && fileMatch[1]);
+        const id = (ucMatch && ucMatch[1]) || (fileMatch && fileMatch[1]) || (thumbMatch && thumbMatch[1]);
         if (id) {
             return `https://lh3.googleusercontent.com/d/${id}`;
         }

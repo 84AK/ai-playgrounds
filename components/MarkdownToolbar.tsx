@@ -45,6 +45,11 @@ export default function MarkdownToolbar({ content, onChange, textareaRef }: Mark
             icon: "🎠 슬라이드",
             action: () => insertText("```carousel\nhttps://example.com/image1.jpg\nhttps://example.com/image2.jpg\n```\n", "")
         },
+        {
+            label: "Toggle",
+            icon: "🔽 토글",
+            action: () => insertText("<details>\n<summary>📌 제목을 입력하세요</summary>\n\n여기에 상세 내용을 입력하세요.\n</details>\n", "")
+        },
     ];
 
     return (

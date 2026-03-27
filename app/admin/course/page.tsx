@@ -46,6 +46,12 @@ export default async function AdminCoursePage(props: {
                     </div>
                     <div className="flex flex-wrap gap-3">
                         <Link
+                            href="/admin/feedback"
+                            className="rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-primary/90 hover:scale-105"
+                        >
+                            🧑‍🏫 학생 피드백 하러가기
+                        </Link>
+                        <Link
                             href={track === "POSE" ? `/pose/week${weekId}` : `/course/${weekId}`}
                             className="rounded-2xl border border-border px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
                         >

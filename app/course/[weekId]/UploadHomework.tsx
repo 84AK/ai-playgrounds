@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { delay, getAppsScriptJson, postAppsScript } from "@/lib/appsScriptClient";
 import { readLocalProfile } from "@/hooks/useLocalProfile";
+import MarkdownContent from "@/components/MarkdownContent";
 
 interface UploadHomeworkProps {
     weekId: number;
@@ -14,12 +15,70 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
-    const [modal, setModal] = useState<{ isOpen: boolean, type: 'success' | 'error', message: string }>({ isOpen: false, type: 'success', message: '' });
+    const [modal, setModal] = useState<{ isOpen: boolean, type: 'success' | 'error' | 'feedback', message: string }>({ isOpen: false, type: 'success', message: '' });
+    
+    // [추가] 제출 상태 및 피드백 관련 상태
+    const [statusData, setStatusData] = useState<{
+        submissionStatus: 'not_found' | 'verified' | 'format_mismatch';
+        fileName: string;
+        feedback: string;
+    }>({ submissionStatus: 'not_found', fileName: '', feedback: '' });
+    // [추가] 피드백 상세 모달 상태
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    
+    const [isChecking, setIsChecking] = useState(true);
+    const [isFeedbackConfirmed, setIsFeedbackConfirmed] = useState(false);
+
+    // [추가] 페이지 로드 시 제출 상태 확인
+    useEffect(() => {
+        checkSubmissionStatus();
+    }, [weekId]);
+
+    const checkSubmissionStatus = async () => {
+        const profile = readLocalProfile();
+        const nickname = profile?.name ?? "";
+        if (!nickname) {
+            setIsChecking(false);
+            return;
+        }
+
+        try {
+            const res = await getAppsScriptJson<{ 
+                data: { submissionStatus: any, fileName: string, feedback: string } 
+            }>(new URLSearchParams({
+                action: "checkUserStatus",
+                user_id: nickname,
+                week: weekId.toString()
+            }));
+
+            if (res.data) {
+                setStatusData({
+                    submissionStatus: res.data.submissionStatus,
+                    fileName: res.data.fileName,
+                    feedback: res.data.feedback
+                });
+            }
+        } catch (err) {
+            console.error("Status check failed:", err);
+        } finally {
+            setIsChecking(false);
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0]);
+            const selectedFile = e.target.files[0];
+            setFile(selectedFile);
             setErrorMsg("");
+
+            // [추가] 실시간 파일명 형식 검증 (정규식: 주차_학년반_이름.확장자)
+            const profile = readLocalProfile();
+            const nickname = profile?.name ?? "";
+            const regex = new RegExp("^" + weekId + "주차_\\d+학년\\d+반_" + nickname + "\\.");
+            
+            if (!regex.test(selectedFile.name)) {
+                setErrorMsg("선택하신 파일은 업로드 시 자동으로 형식에 맞춰 변환됩니다! ✨");
+            }
         }
     };
 
@@ -131,6 +190,52 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                 <div className="pointer-events-none absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-[100px]" />
                 <div className="pointer-events-none absolute -bottom-24 -left-24 w-64 h-64 bg-indigo-500/5 rounded-full blur-[100px]" />
 
+                {/* [추가] 과제 제출 상태 배너 (Bento Style) */}
+                <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={`p-6 rounded-[32px] border-2 transition-all flex items-center justify-between ${
+                        statusData.submissionStatus === 'verified' ? 'bg-green-50 border-green-200' : 
+                        statusData.submissionStatus === 'format_mismatch' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
+                    }`}>
+                        <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-sm border ${
+                                statusData.submissionStatus === 'verified' ? 'bg-green-500 text-white border-green-400' :
+                                statusData.submissionStatus === 'format_mismatch' ? 'bg-amber-500 text-white border-amber-400' : 'bg-slate-300 text-white border-slate-200'
+                            }`}>
+                                {statusData.submissionStatus === 'verified' ? '✅' : statusData.submissionStatus === 'format_mismatch' ? '⚠️' : '❓'}
+                            </div>
+                            <div>
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Submit Status</p>
+                                <h4 className="font-black text-[#2F3D4A]">
+                                    {statusData.submissionStatus === 'verified' ? '제출 완료 (확인됨)' : 
+                                     statusData.submissionStatus === 'format_mismatch' ? '형식 오류 (수정 필요)' : '미제출 상태'}
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div 
+                        onClick={() => statusData.feedback && setIsFeedbackModalOpen(true)}
+                        className={`p-6 rounded-[32px] border-2 border-slate-200 bg-white shadow-sm flex items-center justify-between group hover:border-primary/30 transition-all ${statusData.feedback ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}
+                    >
+                        <div className="flex items-center gap-4 w-full">
+                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-xl border border-indigo-100 group-hover:bg-primary/10 transition-colors shrink-0">
+                                💬
+                            </div>
+                            <div className="overflow-hidden flex-1">
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Recent Feedback</p>
+                                <h4 className="font-black text-[#2F3D4A] line-clamp-1">
+                                    {statusData.feedback || "선생님의 한마디가 없습니다."}
+                                </h4>
+                            </div>
+                            {statusData.feedback && (
+                                <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                    자세히 보기 →
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
                 <div className="relative mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
                     <div className="flex items-center gap-6">
                         <div className="w-16 h-16 rounded-[24px] bg-amber-100 flex items-center justify-center text-3xl border-2 border-[#2F3D4A] shadow-[2px_2px_0px_0px_#2F3D4A]">
@@ -184,8 +289,12 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                         </div>
 
                         {errorMsg && (
-                            <div className="flex items-center gap-3 text-destructive text-sm font-bold bg-destructive/10 p-5 rounded-[24px] border border-destructive/20 animate-in slide-in-from-top-2">
-                                <span className="text-xl">⚠️</span> {errorMsg}
+                            <div className={`flex items-center gap-3 text-sm font-bold p-5 rounded-[24px] border animate-in slide-in-from-top-2 ${
+                                errorMsg.includes('✨') 
+                                ? "text-primary bg-primary/5 border-primary/20" 
+                                : "text-destructive bg-destructive/10 border-destructive/20"
+                            }`}>
+                                <span className="text-xl">{errorMsg.includes('✨') ? "ℹ️" : "⚠️"}</span> {errorMsg}
                             </div>
                         )}
 
@@ -244,26 +353,77 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                 </div>
             </div>
 
-            {/* Success/Error Modal (Scoped within section) */}
+            {/* Success/Error/Feedback Modal */}
             {modal.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-2xl animate-in fade-in duration-300">
                     <div className="bg-background max-w-sm w-full p-12 rounded-[48px] shadow-2xl border border-white/10 animate-in zoom-in-95 duration-300 text-center">
-                        <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto mb-8 ${modal.type === 'success' ? 'bg-green-500/10 text-green-500 shadow-[0_0_40px_rgba(34,197,94,0.3)]' : 'bg-destructive/10 text-destructive shadow-[0_0_40px_rgba(239,68,68,0.3)]'}`}>
+                        <div className={`w-24 h-24 rounded-[32px] flex items-center justify-center mx-auto mb-8 ${
+                            modal.type === 'success' ? 'bg-green-500/10 text-green-500 shadow-[0_0_40px_rgba(34,197,94,0.3)]' : 
+                            modal.type === 'feedback' ? 'bg-primary/10 text-primary shadow-[0_0_40px_rgba(59,130,246,0.3)]' :
+                            'bg-destructive/10 text-destructive shadow-[0_0_40px_rgba(239,68,68,0.3)]'
+                        }`}>
                             {modal.type === 'success' ? (
                                 <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>
+                            ) : modal.type === 'feedback' ? (
+                                <span className="text-4xl">🧑‍🏫</span>
                             ) : (
                                 <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                             )}
                         </div>
-                        <h3 className="text-3xl font-black mb-4">{modal.type === 'success' ? '제출 성공!' : '제출 실패'}</h3>
-                        <p className="text-muted-foreground font-medium leading-relaxed mb-10 text-[16px]">{modal.message}</p>
+                        <h3 className="text-3xl font-black mb-4">
+                            {modal.type === 'success' ? '제출 성공!' : '제출 실패'}
+                        </h3>
+                        <p className="text-muted-foreground font-medium leading-relaxed mb-10 text-[16px] whitespace-pre-wrap">{modal.message}</p>
 
                         <button
                             onClick={closeModal}
-                            className={`w-full py-5 rounded-[24px] font-black text-white transition-all shadow-xl ${modal.type === 'success' ? 'bg-primary hover:bg-primary/90 shadow-primary/20' : 'bg-destructive hover:bg-destructive/90 shadow-destructive/20'}`}
+                            className={`w-full py-5 rounded-[24px] font-black text-white transition-all shadow-xl ${
+                                modal.type === 'success' || modal.type === 'feedback' ? 'bg-primary hover:bg-primary/90 shadow-primary/20' : 'bg-destructive hover:bg-destructive/90 shadow-destructive/20'
+                            }`}
                         >
-                            {modal.type === 'success' ? '메인으로 이동' : '다시 시도'}
+                            {modal.type === 'success' ? '메인으로 이동' : modal.type === 'feedback' ? '확인했습니다' : '다시 시도'}
                         </button>
+                    </div>
+                </div>
+            )}
+            {/* Feedback Modal (Markdown Applied) */}
+            {isFeedbackModalOpen && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white max-w-2xl w-full max-h-[80vh] overflow-hidden rounded-[40px] shadow-2xl border-2 border-[#2F3D4A] animate-in zoom-in-95 duration-300 flex flex-col">
+                        <div className="p-8 border-b-2 border-[#2F3D4A] bg-amber-50 flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-2xl shadow-lg shadow-primary/20">
+                                    🧑‍🏫
+                                </div>
+                                <div>
+                                    <p className="text-xs font-black text-primary uppercase tracking-widest">Teacher's Feedback</p>
+                                    <h3 className="text-xl font-black text-[#2F3D4A]">{weekId}주차 과제 피드백</h3>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setIsFeedbackModalOpen(false)}
+                                className="w-10 h-10 rounded-xl hover:bg-[#2F3D4A]/5 flex items-center justify-center transition-colors"
+                            >
+                                <svg className="w-6 h-6 text-[#2F3D4A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-white">
+                            <div className="bg-slate-50 p-6 rounded-[24px] border-2 border-dashed border-slate-200">
+                                <MarkdownContent content={statusData.feedback} className="p-0 border-none" />
+                            </div>
+                        </div>
+
+                        <div className="p-8 border-t-2 border-[#2F3D4A] bg-slate-50">
+                            <button
+                                onClick={() => setIsFeedbackModalOpen(false)}
+                                className="w-full py-4 bg-[#2F3D4A] text-white rounded-[20px] font-black shadow-lg hover:opacity-90 transition-all"
+                            >
+                                확인했습니다
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

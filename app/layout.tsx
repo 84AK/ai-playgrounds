@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import GlobalAuthGuard from "@/components/GlobalAuthGuard";
 import LayoutClientWrapper from "@/components/LayoutClientWrapper";
+import FeedbackOverlay from "@/components/FeedbackOverlay";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,6 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen relative overflow-x-hidden bg-[#FDFAEF] text-[#2F3D4A]`}
       >
         <GlobalAuthGuard />
+        <FeedbackOverlay />
         <LayoutClientWrapper>{children}</LayoutClientWrapper>
       </body>
     </html>

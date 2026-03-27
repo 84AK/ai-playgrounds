@@ -25,38 +25,35 @@ const poseSteps = [
 
 export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) {
     const [progress, setProgress] = useState<ProgressData | null>(null);
+    const [detailedStatus, setDetailedStatus] = useState<Record<string, { status: string, fileName: string }>>({});
     const [isLoading, setIsLoading] = useState(false);
     const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
     useEffect(() => {
         if (!nickname) return;
 
-        const syncProgress = async () => {
-            // SWR 패턴: 캐시를 먼저 확인
-            const cached = getCachedProgress(nickname);
-            if (cached) {
-                setProgress(cached.data);
-                if (isCacheStale(cached)) {
-                    refreshProgress();
-                }
-            } else {
-                refreshProgress();
-            }
-        };
-
         const refreshProgress = async () => {
             setIsLoading(true);
             try {
-                const freshData = await fetchAndCacheProgress(nickname);
-                if (freshData) {
-                    setProgress(freshData);
+                // detailed 정보를 포함하기 위해 직접 fetch 호출 (APPS_SCRIPT_URL 사용)
+                const url = new URL(process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "");
+                url.searchParams.set("action", "getProgress");
+                url.searchParams.set("user_id", nickname);
+
+                const response = await fetch(url.toString());
+                const res = await response.json();
+                if (res.status === "success") {
+                    setProgress(res.data);
+                    setDetailedStatus(res.detailed || {});
                 }
+            } catch (err) {
+                console.error("Failed to fetch progress", err);
             } finally {
                 setIsLoading(false);
             }
         };
 
-        syncProgress();
+        refreshProgress();
     }, [nickname]);
 
     const handleDelete = async (courseType: "MBTI" | "POSE", week: number, key: string) => {
@@ -89,16 +86,31 @@ export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) 
     };
 
     const renderStep = (step: typeof mbtiSteps[0], isCompleted: boolean, downloadUrl?: string, courseType: "MBTI" | "POSE" = "MBTI") => {
-        const loadingKey = `${courseType.toLowerCase()}_week${step.id}`;
-        const isCurrentDeleting = isDeleting === loadingKey;
+        const key = `${courseType.toLowerCase()}_week${step.id}`;
+        const detailed = detailedStatus[key];
+        const isCurrentDeleting = isDeleting === key;
+
+        // 상태 판별
+        const showWarning = isCompleted && detailed?.status === "format_mismatch";
 
         return (
             <div key={step.key} className="flex items-center justify-between p-4 rounded-xl border-2 border-[#2F3D4A] bg-white shadow-[2px_2px_0px_0px_#2F3D4A]">
                 <div className="flex items-center gap-3">
-                    <div className={`w-6 h-6 rounded-full border-2 border-[#2F3D4A] flex items-center justify-center text-[11px] font-black ${isCompleted ? "bg-emerald-400 text-white" : "bg-white text-[#2F3D4A]"}`}>
-                        {isCompleted ? "✓" : "○"}
+                    <div className={`w-6 h-6 rounded-full border-2 border-[#2F3D4A] flex items-center justify-center text-[11px] font-black ${
+                        isCompleted 
+                            ? (showWarning ? "bg-amber-500 text-white" : "bg-emerald-400 text-white") 
+                            : "bg-white text-[#2F3D4A]"
+                    }`}>
+                        {isCompleted ? (showWarning ? "!" : "✓") : "○"}
                     </div>
-                    <span className={`text-sm font-black ${isCompleted ? "text-slate-400 line-through decoration-[#2F3D4A]/30" : "text-[#2F3D4A]"}`}>{step.label}</span>
+                    <div className="flex flex-col">
+                        <span className={`text-sm font-black ${isCompleted && !showWarning ? "text-slate-400 line-through decoration-[#2F3D4A]/30" : "text-[#2F3D4A]"}`}>
+                            {step.label}
+                        </span>
+                        {showWarning && (
+                            <span className="text-[9px] font-bold text-amber-600 animate-pulse">⚠️ 프로필 정보 불일치 (재업로드 필요)</span>
+                        )}
+                    </div>
                 </div>
 
                 {isCompleted ? (
@@ -111,7 +123,7 @@ export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) 
                         )}
                         {step.id > 0 && (
                             <button 
-                                onClick={() => handleDelete(courseType, step.id, loadingKey)}
+                                onClick={() => handleDelete(courseType, step.id, key)}
                                 disabled={!!isDeleting}
                                 className="text-[10px] font-black text-rose-900 bg-rose-100 border border-rose-900 px-2 py-0.5 rounded-md uppercase hover:bg-rose-200 disabled:opacity-50 transition-colors flex items-center gap-1"
                             >
@@ -136,6 +148,13 @@ export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) 
 
     return (
         <div className="space-y-6 relative">
+            <div className="bento-item p-4 bg-amber-50 border-2 border-amber-200 flex items-center gap-3 mb-2">
+                <span className="text-xl">⚠️</span>
+                <p className="text-xs font-bold leading-relaxed text-amber-800">
+                    실시간 과제 현황입니다. <span className="font-black underline decoration-amber-500 decoration-2">⚠️ 느낌표</span> 아이콘이 뜬 과제는 **프로필 정보(학년/반)가 잘 입력되었는지 확인**하고 과제를 다시 업로드해 주세요!
+                </p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bento-item p-6 border-2 border-[#2F3D4A] bg-white relative overflow-hidden group">
                     <h4 className="text-base font-black mb-4 flex items-center gap-2 text-[#2F3D4A]">

@@ -5,4 +5,5 @@ export interface UserProfile {
     classGroup?: string | number;
     password?: string;
     avatar: string;
+    feedback?: string;
 }

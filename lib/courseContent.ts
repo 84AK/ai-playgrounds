@@ -47,12 +47,34 @@ export async function getCourseContent(track: CourseTrack, weekId: number) {
       { cache: "no-store" }
     );
     const result = await res.json();
+    console.log(`[DEBUG] GAS Response (${track}, week ${weekId}):`, JSON.stringify(result).substring(0, 100) + "...");
+    
     const content = extractContentFromSheetResponse(result);
-    // 내용이 있으면 반환하고, 없으면 빈 문자열("")을 반환하여 템플릿 로드를 방지합니다.
-    return { content: content !== null ? content : "", source: "sheet" as const };
+    
+    // [보강] 시트에 내용이 있으면 반환, 없으면 로컬 파일에서 읽어오기 (Fallback)
+    if (content && content.trim().length > 0) {
+      console.log(`[OK] Sheet content loaded successfully for ${track} week ${weekId}`);
+      return { content: content, source: "sheet" as const };
+    }
+    
+    console.log(`[WARN] Sheet content is empty or not found. Falling back to Local File for ${track} week ${weekId}`);
+
+    // 시트가 비어있으면 로컬 파일 시도
+    try {
+      const local = await readLocalContent(track, weekId);
+      console.log(`구글 시트에 내용이 없어 로컬 파일(${local.filePath})을 대신 불러왔습니다.`);
+      return { content: local.content, source: "local" as const, filePath: local.filePath };
+    } catch (localError) {
+      return { content: "", source: "local" as const };
+    }
   } catch (error) {
-    console.error("구글 스프레드시트 콘텐츠 로드 실패:", error);
-    throw new Error("구글 스프레드시트에서 강의 콘텐츠를 불러오는 데 실패했습니다.");
+    console.error("구글 스프레드시트 콘텐츠 로드 실패, 로컬 파일 시도:", error);
+    try {
+      const local = await readLocalContent(track, weekId);
+      return { content: local.content, source: "local" as const, filePath: local.filePath };
+    } catch (localError) {
+      throw new Error("강의 콘텐츠를 불러오는 데 완전히 실패했습니다.");
+    }
   }
 }
 

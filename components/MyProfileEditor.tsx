@@ -20,10 +20,18 @@ export default function MyProfileEditor({ initialProfile }: MyProfileEditorProps
     const [password, setPassword] = useState(initialProfile.password || "");
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
+    const [showErrors, setShowErrors] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
     const handleSave = async () => {
+        if (!name || !school || !grade || !classGroup) {
+            setShowErrors(true);
+            alert("⚠️ 모든 정보를 입력해야 과제 관리가 정확히 이루어집니다. 빨간색 칸을 확인해 주세요!");
+            return;
+        }
+
         setIsSaving(true);
+        setShowErrors(false);
         const newProfile: UserProfile = {
             ...initialProfile,
             name,
@@ -48,6 +56,14 @@ export default function MyProfileEditor({ initialProfile }: MyProfileEditorProps
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const getInputStyle = (val: string | number) => {
+        const base = "w-full transition-all border-2 rounded-xl px-4 py-3 font-bold";
+        if (showErrors && !val && val !== 0) {
+            return `${base} border-red-600 bg-red-50 ring-4 ring-red-600/20 animate-pulse`;
+        }
+        return `${base} border-[#2F3D4A] focus:border-primary focus:ring-4 focus:ring-primary/10`;
     };
 
     return (
@@ -81,37 +97,49 @@ export default function MyProfileEditor({ initialProfile }: MyProfileEditorProps
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">연구원 이름 (닉네임)</label>
+                        <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">
+                            연구원 이름 (닉네임) {showErrors && !name && <span className="text-red-600 font-black ml-1">! 필수</span>}
+                        </label>
                         <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
+                            className={getInputStyle(name)}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">소속 학교/기관</label>
+                        <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">
+                            소속 학교/기관 {showErrors && !school && <span className="text-red-600 font-black ml-1">! 필수</span>}
+                        </label>
                         <input
                             type="text"
                             value={school}
                             onChange={(e) => setSchool(e.target.value)}
+                            className={getInputStyle(school)}
                             placeholder="대건고등학교"
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">학년</label>
+                        <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">
+                            학년 {showErrors && !grade && <span className="text-red-600 font-black ml-1">! 필수</span>}
+                        </label>
                         <input
                             type="text"
                             value={grade}
                             onChange={(e) => setGrade(e.target.value)}
+                            className={getInputStyle(grade)}
                             placeholder="1"
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">반</label>
+                        <label className="block text-xs font-black text-slate-700 uppercase tracking-widest">
+                            반 {showErrors && !classGroup && <span className="text-red-600 font-black ml-1">! 필수</span>}
+                        </label>
                         <input
                             type="text"
                             value={classGroup}
                             onChange={(e) => setClassGroup(e.target.value)}
+                            className={getInputStyle(classGroup)}
                             placeholder="2"
                         />
                     </div>
@@ -122,7 +150,7 @@ export default function MyProfileEditor({ initialProfile }: MyProfileEditorProps
                                 type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full pr-12"
+                                className="w-full pr-12 border-2 border-[#2F3D4A] rounded-xl px-4 py-3 font-bold focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all"
                             />
                             <button
                                 type="button"
