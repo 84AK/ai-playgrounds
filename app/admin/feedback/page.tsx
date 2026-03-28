@@ -60,11 +60,12 @@ export default function AdminFeedbackPage() {
         loadReferenceCode();
     }, [selectedWeek]);
 
-    // [NEW] 학생 제출 상태 실시간 확인
+    // [NEW] 학생 제출 상태 및 주차별 피드백 실시간 확인
     useEffect(() => {
-        const checkSubmission = async () => {
+        const checkSubmissionAndFeedback = async () => {
             if (!selectedStudent) {
                 setStudentSubmission(null);
+                setFeedback(""); // 학생 선택 해제가 되면 에디터 비우기
                 return;
             }
             try {
@@ -80,12 +81,14 @@ export default function AdminFeedbackPage() {
                         status: res.data.submissionStatus,
                         fileName: res.data.fileName
                     });
+                    // 해당 주차의 피드백으로 에디터 채우기 (없으면 빈 문자열)
+                    setFeedback(res.data.feedback || "");
                 }
             } catch (err) {
-                console.error("제출 상태 확인 실패:", err);
+                console.error("데이터 로드 실패:", err);
             }
         };
-        checkSubmission();
+        checkSubmissionAndFeedback();
     }, [selectedStudent, selectedWeek]);
 
     const handleLogin = (e: React.FormEvent) => {
@@ -121,6 +124,7 @@ export default function AdminFeedbackPage() {
             await postAppsScript({
                 action: "updateFeedback",
                 user_id: selectedStudent.name,
+                week: selectedWeek, // 주차 정보 추가
                 feedback: feedback
             });
             setStatusMsg("✅ 피드백 전송 완료!");
@@ -248,7 +252,7 @@ export default function AdminFeedbackPage() {
                                         key={idx}
                                         onClick={() => {
                                             setSelectedStudent(s);
-                                            setFeedback(s.feedback);
+                                            // setFeedback(s.feedback); // 여기서 설정하지 않고 useEffect에서 로드함
                                             setStatusMsg("");
                                         }}
                                         className={`p-6 border-b border-slate-50 cursor-pointer transition-all ${selectedStudent?.name === s.name ? 'bg-primary/5 border-l-4 border-l-primary' : 'hover:bg-slate-50'}`}
