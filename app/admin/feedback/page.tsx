@@ -23,6 +23,7 @@ export default function AdminFeedbackPage() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [selectedWeek, setSelectedWeek] = useState(1);
     const [studentSubmission, setStudentSubmission] = useState<{ status: string; fileName: string } | null>(null);
+    const [isValidating, setIsValidating] = useState(false);
     const [activeTab, setActiveTab] = useState("전체");
     const [searchTerm, setSearchTerm] = useState("");
 
@@ -69,6 +70,7 @@ export default function AdminFeedbackPage() {
                 return;
             }
             try {
+                setIsValidating(true);
                 const res = await getAppsScriptJson<{ data: any }>(
                     new URLSearchParams({ 
                         action: "checkUserStatus", 
@@ -86,6 +88,8 @@ export default function AdminFeedbackPage() {
                 }
             } catch (err) {
                 console.error("데이터 로드 실패:", err);
+            } finally {
+                setIsValidating(false);
             }
         };
         checkSubmissionAndFeedback();
@@ -272,8 +276,16 @@ export default function AdminFeedbackPage() {
 
                     {/* Feedback Editor */}
                     <div className="bg-white rounded-[40px] border-2 border-slate-200 p-8 md:p-12 shadow-sm relative overflow-hidden">
+                        {isValidating && (
+                            <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex items-center justify-center animate-in fade-in duration-300">
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                                    <p className="text-sm font-black text-primary animate-pulse">데이터를 불러오는 중...</p>
+                                </div>
+                            </div>
+                        )}
                         {selectedStudent ? (
-                            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                            <div className={`animate-in fade-in slide-in-from-right-4 duration-500 ${isValidating ? 'opacity-30 blur-[1px]' : ''}`}>
                                 <div className="mb-8">
                                     <span className="text-primary font-black uppercase tracking-widest text-xs">Target Student</span>
                                     <h2 className="text-3xl font-black text-[#2F3D4A] mt-2">{selectedStudent.name} 학생에게 피드백</h2>

@@ -203,48 +203,70 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
 
                 {/* [추가] 과제 제출 상태 배너 (Bento Style) */}
                 <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className={`p-6 rounded-[32px] border-2 transition-all flex items-center justify-between ${
-                        statusData.submissionStatus === 'verified' ? 'bg-green-50 border-green-200' : 
-                        statusData.submissionStatus === 'format_mismatch' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
-                    }`}>
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-sm border ${
-                                statusData.submissionStatus === 'verified' ? 'bg-green-500 text-white border-green-400' :
-                                statusData.submissionStatus === 'format_mismatch' ? 'bg-amber-500 text-white border-amber-400' : 'bg-slate-300 text-white border-slate-200'
+                    {isChecking ? (
+                        <>
+                            {/* 로딩 스켈레톤 */}
+                            <div className="p-6 rounded-[32px] border-2 border-slate-100 bg-slate-50 animate-pulse flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-slate-200" />
+                                <div className="space-y-2 flex-1">
+                                    <div className="h-3 w-20 bg-slate-200 rounded" />
+                                    <div className="h-4 w-32 bg-slate-200 rounded" />
+                                </div>
+                            </div>
+                            <div className="p-6 rounded-[32px] border-2 border-slate-100 bg-slate-50 animate-pulse flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-slate-200" />
+                                <div className="space-y-2 flex-1">
+                                    <div className="h-3 w-20 bg-slate-200 rounded" />
+                                    <div className="h-4 w-full bg-slate-200 rounded" />
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className={`p-6 rounded-[32px] border-2 transition-all flex items-center justify-between ${
+                                statusData.submissionStatus === 'verified' ? 'bg-green-50 border-green-200' : 
+                                statusData.submissionStatus === 'format_mismatch' ? 'bg-amber-50 border-amber-200' : 'bg-slate-50 border-slate-200'
                             }`}>
-                                {statusData.submissionStatus === 'verified' ? '✅' : statusData.submissionStatus === 'format_mismatch' ? '⚠️' : '❓'}
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-sm border ${
+                                        statusData.submissionStatus === 'verified' ? 'bg-green-500 text-white border-green-400' :
+                                        statusData.submissionStatus === 'format_mismatch' ? 'bg-amber-500 text-white border-amber-400' : 'bg-slate-300 text-white border-slate-200'
+                                    }`}>
+                                        {statusData.submissionStatus === 'verified' ? '✅' : statusData.submissionStatus === 'format_mismatch' ? '⚠️' : '❓'}
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Submit Status</p>
+                                        <h4 className="font-black text-[#2F3D4A]">
+                                            {statusData.submissionStatus === 'verified' ? '제출 완료 (확인됨)' : 
+                                            statusData.submissionStatus === 'format_mismatch' ? '형식 오류 (수정 필요)' : '미제출 상태'}
+                                        </h4>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Submit Status</p>
-                                <h4 className="font-black text-[#2F3D4A]">
-                                    {statusData.submissionStatus === 'verified' ? '제출 완료 (확인됨)' : 
-                                     statusData.submissionStatus === 'format_mismatch' ? '형식 오류 (수정 필요)' : '미제출 상태'}
-                                </h4>
+                            
+                            <div 
+                                onClick={() => statusData.feedback && setIsFeedbackModalOpen(true)}
+                                className={`p-6 rounded-[32px] border-2 border-slate-200 bg-white shadow-sm flex items-center justify-between group hover:border-primary/30 transition-all ${statusData.feedback ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}
+                            >
+                                <div className="flex items-center gap-4 w-full">
+                                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-xl border border-indigo-100 group-hover:bg-primary/10 transition-colors shrink-0">
+                                        💬
+                                    </div>
+                                    <div className="overflow-hidden flex-1">
+                                        <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Recent Feedback</p>
+                                        <h4 className="font-black text-[#2F3D4A] line-clamp-1">
+                                            {statusData.feedback || "선생님의 한마디가 없습니다."}
+                                        </h4>
+                                    </div>
+                                    {statusData.feedback && (
+                                        <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                            자세히 보기 →
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    
-                    <div 
-                        onClick={() => statusData.feedback && setIsFeedbackModalOpen(true)}
-                        className={`p-6 rounded-[32px] border-2 border-slate-200 bg-white shadow-sm flex items-center justify-between group hover:border-primary/30 transition-all ${statusData.feedback ? 'cursor-pointer hover:shadow-md' : 'cursor-default'}`}
-                    >
-                        <div className="flex items-center gap-4 w-full">
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-xl border border-indigo-100 group-hover:bg-primary/10 transition-colors shrink-0">
-                                💬
-                            </div>
-                            <div className="overflow-hidden flex-1">
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Recent Feedback</p>
-                                <h4 className="font-black text-[#2F3D4A] line-clamp-1">
-                                    {statusData.feedback || "선생님의 한마디가 없습니다."}
-                                </h4>
-                            </div>
-                            {statusData.feedback && (
-                                <span className="text-[10px] font-black text-primary bg-primary/5 px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                    자세히 보기 →
-                                </span>
-                            )}
-                        </div>
-                    </div>
+                        </>
+                    )}
                 </div>
 
                 <div className="relative mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
