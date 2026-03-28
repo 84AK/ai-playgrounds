@@ -210,14 +210,14 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                 <div className="w-12 h-12 rounded-2xl bg-slate-200" />
                                 <div className="space-y-2 flex-1">
                                     <div className="h-3 w-20 bg-slate-200 rounded" />
-                                    <div className="h-4 w-32 bg-slate-200 rounded" />
+                                    <div className="text-sm font-black text-slate-300 italic">제출 상태 확인 중...</div>
                                 </div>
                             </div>
                             <div className="p-6 rounded-[32px] border-2 border-slate-100 bg-slate-50 animate-pulse flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-2xl bg-slate-200" />
                                 <div className="space-y-2 flex-1">
                                     <div className="h-3 w-20 bg-slate-200 rounded" />
-                                    <div className="h-4 w-full bg-slate-200 rounded" />
+                                    <div className="text-sm font-black text-slate-300 italic">피드백 불러오는 중...</div>
                                 </div>
                             </div>
                         </>
