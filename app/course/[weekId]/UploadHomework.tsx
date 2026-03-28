@@ -68,13 +68,23 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const selectedFile = e.target.files[0];
+            const ext = selectedFile.name.split('.').pop()?.toLowerCase() || "";
+            
+            // 🛡️ [.zip 엄격 제한]
+            if (ext !== "zip") {
+                setErrorMsg("⚠️ 업로드 실패: 반드시 .zip 형식의 압축 파일만 제출 가능합니다.");
+                setFile(null);
+                e.target.value = ""; // input 초기화
+                return;
+            }
+
             setFile(selectedFile);
             setErrorMsg("");
 
-            // [추가] 실시간 파일명 형식 검증 (정규식: 주차_학년반_이름.확장자)
+            // [추가] 실시간 파일명 형식 검증 (정규식: 주차_학년반_이름.zip)
             const profile = readLocalProfile();
             const nickname = profile?.name ?? "";
-            const regex = new RegExp("^" + weekId + "주차_\\d+학년\\d+반_" + nickname + "\\.");
+            const regex = new RegExp("^" + weekId + "주차_\\d+학년\\d+반_" + nickname + "\\.zip$");
             
             if (!regex.test(selectedFile.name)) {
                 setErrorMsg("선택하신 파일은 업로드 시 자동으로 형식에 맞춰 변환됩니다! ✨");
@@ -135,6 +145,7 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                 user_id: nickname,
                 course_type: "MBTI", 
                 week: weekId,
+                grade_class: userInfoStr.replace('_', ''), // "2학년3반" 형식
                 file_name: finalFileName,
                 mime_type: file.type || "application/octet-stream",
                 file_base64: base64Data
@@ -257,7 +268,7 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                 type="file"
                                 onChange={handleFileChange}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                accept=".html,.css,.js,.zip,.json,.md"
+                                accept=".zip"
                             />
                             {file ? (
                                 <div className="flex flex-col items-center gap-4 text-primary animate-in zoom-in duration-300">
@@ -282,7 +293,7 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                     </div>
                                     <div className="text-center">
                                         <span className="block font-black text-lg text-[#2F3D4A] group-hover:text-primary transition-colors">여기를 클릭하거나 파일을 드래그하세요</span>
-                                        <span className="block text-sm text-slate-500 mt-1 font-medium">zip, html, js, css 등 지원</span>
+                                        <span className="block text-sm text-slate-500 mt-1 font-medium">반드시 .zip 압축 파일만 가능합니다</span>
                                     </div>
                                 </div>
                             )}
@@ -329,7 +340,7 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                 <li className="flex gap-4">
                                     <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
                                     <p className="text-[15px] leading-relaxed text-foreground/80 font-medium">
-                                        여러 개의 파일인 경우 반드시 <span className="text-primary font-bold underline underline-offset-4">압축파일(.zip)</span>로 묶어서 제출해 주세요.
+                                        모든 결과물은 반드시 <span className="text-primary font-bold underline underline-offset-4">.zip 압축파일</span> 형태로만 제출할 수 있습니다.
                                     </p>
                                 </li>
                                 <li className="flex gap-4">
