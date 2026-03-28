@@ -179,7 +179,28 @@ export default function Showcase() {
         async function loadData() {
             try {
                 // 사용자님이 제공해주신 구글 시트 API URL에 getAllMbtiData 액션 추가 (쇼케이스 데이터 포함)
+                // 1. API URL 확인 (배포 환경에서 환경 변수가 누락되었을 경우에 대비)
+                if (!APPS_SCRIPT_URL) {
+                    console.warn("APPS_SCRIPT_URL is not defined. Please check Vercel environment variables.");
+                    setIsLoading(false);
+                    return;
+                }
+
                 const response = await fetch(`${APPS_SCRIPT_URL}?action=getAllMbtiData`);
+                
+                // 2. HTTP 에러 확인
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // 3. JSON 응답 확인 (HTML 에러 페이지 등이 반환되는 경우 방지)
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    const errorText = await response.text();
+                    console.error("Non-JSON response received:", errorText.substring(0, 100));
+                    throw new Error("서버로부터 올바른 JSON 데이터를 받지 못했습니다. API 설정을 확인해주세요.");
+                }
+
                 const result = await response.json();
 
                 // 새로운 백엔드 응답 구조(mbti_questions, showcase_links) 대응
@@ -280,7 +301,8 @@ export default function Showcase() {
                     };
                 });
 
-                setProjects(formatted.reverse()); // 최신순
+                // 4. 안전한 상태 업데이트: reverse()는 원본 배열을 직접 변경하므로 복사본을 만들어 처리합니다.
+                setProjects([...formatted].reverse()); // 최신순
             } catch (err) {
                 console.error("Showcase data fetch failed:", err);
             } finally {
