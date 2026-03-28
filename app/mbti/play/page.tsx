@@ -152,24 +152,24 @@ function MBTIPlayContent() {
                 <div className="space-y-6 text-center">
                     <span className="text-4xl font-black text-primary/20 italic">Q. {String(currentIndex + 1).padStart(2, '0')}</span>
                     <h2 className="text-3xl font-black tracking-tight leading-tight text-foreground drop-shadow-sm min-h-[6rem] flex items-center justify-center">
-                        {currentQuestion.text || "질문 내용이 없습니다."}
+                        {(currentQuestion.Text || currentQuestion.text) || "질문 내용이 없습니다."}
                     </h2>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
                     <button
-                        onClick={() => handleAnswer(currentQuestion.trait1)}
+                        onClick={() => handleAnswer(currentQuestion.Trait1 || currentQuestion.trait1)}
                         className="w-full p-8 rounded-[2rem] bg-secondary hover:bg-primary hover:text-white transition-all duration-300 font-black text-left group flex items-start gap-4 border border-border/50"
                     >
                         <span className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-white/20">A</span>
-                        <span className="text-lg leading-snug">{currentQuestion.option1 || "보기 1"}</span>
+                        <span className="text-lg leading-snug">{(currentQuestion.Option1 || currentQuestion.option1) || "보기 1"}</span>
                     </button>
                     <button
-                        onClick={() => handleAnswer(currentQuestion.trait2)}
+                        onClick={() => handleAnswer(currentQuestion.Trait2 || currentQuestion.trait2)}
                         className="w-full p-8 rounded-[2rem] bg-secondary hover:bg-primary hover:text-white transition-all duration-300 font-black text-left group flex items-start gap-4 border border-border/50"
                     >
                         <span className="w-8 h-8 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center shrink-0 group-hover:bg-white/20">B</span>
-                        <span className="text-lg leading-snug">{currentQuestion.option2 || "보기 2"}</span>
+                        <span className="text-lg leading-snug">{(currentQuestion.Option2 || currentQuestion.option2) || "보기 2"}</span>
                     </button>
                 </div>
             </div>

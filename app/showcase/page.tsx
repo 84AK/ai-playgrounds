@@ -14,6 +14,12 @@ export default function Showcase() {
     const [selectedDate, setSelectedDate] = useState("");
     const [likedProjects, setLikedProjects] = useState<Record<number, boolean>>({});
 
+    // 새로운 필터링 상태 추가
+    const [schoolFilter, setSchoolFilter] = useState("all");
+    const [gradeFilter, setGradeFilter] = useState("all");
+    const [classFilter, setClassFilter] = useState("all");
+    const [searchQuery, setSearchQuery] = useState("");
+
     // 커스텀 쇼케이스 등록용 상태
     const [showModal, setShowModal] = useState(false);
     const [showEditAuthModal, setShowEditAuthModal] = useState(false);
@@ -122,6 +128,23 @@ export default function Showcase() {
         return "CUSTOM";
     };
 
+    const normalizeSchoolName = (name: string) => {
+        if (!name || name === "undefined") return "";
+        // 1. 공백 제거 및 오타 수정
+        let n = name.replace(/\s+/g, "").replace(/등학교/g, "고등학교");
+        
+        // 2. 키워드 기반 표준화 (대건)
+        if (n.includes("대건")) return "인천대건고등학교";
+        if (n.includes("남극")) return "남극고등학교";
+        if (n.includes("아크랩스")) return "아크랩스";
+        
+        // 3. '고', '고등'으로 끝나는 경우 '고등학교'로 통일 (선택사항)
+        if (n.endsWith("고") && !n.endsWith("고등학교")) n += "등학교";
+        if (n.endsWith("고등") && !n.endsWith("고등학교")) n += "학교";
+        
+        return n;
+    };
+
     const getCategoryText = (type: string) => {
         if (type === "MBTI") return "MBTI 결과물";
         if (type === "GAME") return "AI 포즈 게임";
@@ -185,9 +208,10 @@ export default function Showcase() {
                         rawProjects = Array.from(uniqueMap.values());
                     }
 
-                    // 커스텀 링크 파싱 (API가 data 객체 안에 showcase_links로 내려줌)
-                    if (result.data.showcase_links) {
-                        customProjects = result.data.showcase_links.map((item: any) => ({
+                    // 커스텀 링크 파싱 (API가 data 객체 안에 showcase_links 또는 ShowcaseLinks로 내려줌)
+                    const showcaseData = result.data.showcase_links || result.data.ShowcaseLinks || result.data.showcaseLinks;
+                    if (showcaseData) {
+                        customProjects = showcaseData.map((item: any) => ({
                             ...(String(item.Url || item.url || "").includes("/mbti/play?author=")
                                 ? { type: "CUSTOM", source: "MBTI_BUILDER" }
                                 : {
@@ -224,8 +248,15 @@ export default function Showcase() {
                     if (displayType.length > 15 || displayType.includes('{') || displayType.includes('[')) displayType = "APP";
                     const createdAt = parseTimestamp(item.timestamp);
 
-                    // 서버에서 아바타 정보(users 객체)를 넘겨주면 활용, 없으면 랜덤 캐릭터
-                    const userAvatar = result.data?.users?.[item.author];
+                    // 서버에서 아바타 정보(users 객체) 및 프로필 정보를 넘겨주면 활용
+                    const userData = result.data?.users?.[item.author];
+                    
+                    // userData가 문자열인 경우(이전 버전)와 객체인 경우(최신 버전) 모두 대응
+                    const userAvatar = typeof userData === 'string' ? userData : userData?.avatar;
+                    const school = typeof userData === 'object' ? (userData?.school || "") : "";
+                    const grade = typeof userData === 'object' ? (userData?.grade || "") : "";
+                    const classGroup = typeof userData === 'object' ? (userData?.classGroup || "") : "";
+
                     const imageOrEmoji = userAvatar ? userAvatar : `https://api.dicebear.com/7.x/bottts/svg?seed=${item.author || idx}&backgroundColor=b6e3f4`;
 
                     return {
@@ -241,7 +272,11 @@ export default function Showcase() {
                         createdAt,
                         createdDateKey: createdAt ? toDateKey(createdAt) : "",
                         tags: ["AI", item.type, displayType],
-                        image: imageOrEmoji
+                        image: imageOrEmoji,
+                        // 필터링을 위한 추가 메타데이터
+                        school: normalizeSchoolName(school),
+                        grade,
+                        classGroup
                     };
                 });
 
@@ -265,27 +300,48 @@ export default function Showcase() {
     thirtyDaysStart.setDate(thirtyDaysStart.getDate() - 29);
 
     const filteredProjects = typeFilteredProjects.filter((project) => {
-        const createdAt: Date | null = project.createdAt;
-        if (dateFilter === "all") return true;
-        if (!createdAt) return false;
+        // [NEW] 테스트용 이름 및 숫자/기호 포함 이름 필터링 강화
+        const authorName = (project.author || "").trim();
+        
+        // 1. 숫자 또는 특수문자가 포함된 이름 제외 (학번+이름 등 차단)
+        // 한글, 영문, 공백만 허용하는 정규표현식
+        const isValidName = /^[a-zA-Zㄱ-ㅎㅏ-ㅣ가-힣\s]+$/.test(authorName);
+        if (!isValidName) return false;
 
-        const createdDate = new Date(createdAt.getFullYear(), createdAt.getMonth(), createdAt.getDate());
+        // 2. 숫자가 포함되어 있는지 한 번 더 명시적으로 확인
+        if (/[0-9]/.test(authorName)) return false;
 
-        if (dateFilter === "today") {
-            return createdDate.getTime() === todayStart.getTime();
+        // 3. 특정 제외 이름 및 테스트용 키워드 차단
+        const lowerName = authorName.toLowerCase();
+        if (["은우", "남은", "테스트", "test", "admin", "관리자", "수정테스트"].some(k => lowerName.includes(k))) return false;
+
+        // 4. 이름이 너무 짧거나 비어있는 경우 제외 (익명 등)
+        if (authorName.length < 2 || authorName === "익명") return false;
+
+        // --- 기존 필터링 로직 ---
+        // 1. 검색어 필터링
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            const searchableText = `${project.title} ${project.author} ${project.description} ${project.school}`.toLowerCase();
+            if (!searchableText.includes(query)) return false;
         }
-        if (dateFilter === "7days") {
-            return createdDate >= sevenDaysStart && createdDate <= todayStart;
-        }
-        if (dateFilter === "30days") {
-            return createdDate >= thirtyDaysStart && createdDate <= todayStart;
-        }
-        if (dateFilter === "exact") {
-            return selectedDate ? project.createdDateKey === selectedDate : true;
-        }
+
+        // 2. 학교 필터링
+        if (schoolFilter !== "all" && project.school !== schoolFilter) return false;
+
+        // 3. 학년 필터링
+        if (gradeFilter !== "all" && String(project.grade) !== gradeFilter) return false;
+
+        // 4. 반 필터링
+        if (classFilter !== "all" && String(project.classGroup) !== classFilter) return false;
 
         return true;
     });
+
+    // 동적 필터 옵션 추출
+    const schools = Array.from(new Set(projects.map(p => p.school).filter(s => s && s !== "undefined"))).sort() as string[];
+    const grades = Array.from(new Set(projects.map(p => p.grade ? String(p.grade) : "").filter(g => g !== ""))).sort();
+    const classes = Array.from(new Set(projects.map(p => p.classGroup ? String(p.classGroup) : "").filter(c => c !== ""))).sort();
 
     const submitProject = async () => {
         if (!formData.author || !formData.title || !formData.url || !formData.password) {
@@ -479,44 +535,88 @@ export default function Showcase() {
                 </p>
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex justify-center gap-3 flex-wrap">
-                {["all", "MBTI", "GAME", "CUSTOM"].map((f) => (
-                    <button
-                        key={f}
-                        onClick={() => setFilter(f)}
-                        className={`px-8 py-3 rounded-2xl text-xs font-black transition-all tracking-widest uppercase ${filter === f
-                            ? "bg-primary text-white shadow-xl shadow-primary/30 scale-105"
-                            : "bg-secondary/50 hover:bg-muted text-muted-foreground border border-transparent hover:border-border"
-                            }`}
-                    >
-                        {f === "all" ? "전체 보기" : f === "MBTI" ? "🧪 MBTI" : f === "GAME" ? "🎮 GAME" : "💻 CUSTOM"}
-                    </button>
-                ))}
-            </div>
-            <div className="flex justify-center items-center gap-3 flex-wrap">
-                <select
-                    value={dateFilter}
-                    onChange={(e) => {
-                        setDateFilter(e.target.value);
-                        if (e.target.value !== "exact") setSelectedDate("");
-                    }}
-                    className="px-4 py-2.5 rounded-xl bg-secondary/50 border border-border text-sm font-bold focus:outline-none focus:border-primary"
-                >
-                    <option value="all">날짜 전체</option>
-                    <option value="today">오늘</option>
-                    <option value="7days">최근 7일</option>
-                    <option value="30days">최근 30일</option>
-                    <option value="exact">날짜 직접 선택</option>
-                </select>
-                {dateFilter === "exact" && (
-                    <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="px-4 py-2.5 rounded-xl bg-secondary/50 border border-border text-sm font-bold focus:outline-none focus:border-primary"
+            {/* Search and Filters */}
+            <div className="max-w-4xl mx-auto space-y-6">
+                {/* Search Bar */}
+                <div className="relative group">
+                    <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </div>
+                    <input 
+                        type="text" 
+                        placeholder="연구원 이름, 학교, 또는 프로젝트 제목으로 검색..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-14 pr-6 py-5 rounded-[2rem] bg-secondary/30 border-2 border-border/50 focus:border-primary/50 focus:ring-4 focus:ring-primary/10 transition-all outline-none text-lg font-bold placeholder:text-muted-foreground/50 shadow-sm"
                     />
-                )}
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex justify-center gap-3 flex-wrap">
+                    {["all", "MBTI", "GAME", "CUSTOM"].map((f) => (
+                        <button
+                            key={f}
+                            onClick={() => setFilter(f)}
+                            className={`px-8 py-3 rounded-2xl text-xs font-black transition-all tracking-widest uppercase ${filter === f
+                                ? "bg-primary text-white shadow-xl shadow-primary/30 scale-105"
+                                : "bg-secondary/50 hover:bg-muted text-muted-foreground border border-transparent hover:border-border"
+                                }`}
+                        >
+                            {f === "all" ? "전체 보기" : f === "MBTI" ? "🧪 MBTI" : f === "GAME" ? "🎮 GAME" : "💻 CUSTOM"}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Sub Filters (School, Grade, Class) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="relative">
+                        <select
+                            value={schoolFilter}
+                            onChange={(e) => setSchoolFilter(e.target.value)}
+                            className="w-full appearance-none px-6 py-4 rounded-2xl bg-white border-2 border-border/50 focus:border-primary/50 outline-none font-bold text-sm transition-all pr-12 shadow-sm"
+                        >
+                            <option value="all">모든 학교</option>
+                            {schools.map(school => (
+                                <option key={school} value={school}>{school}</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </div>
+                    </div>
+
+                    <div className="relative">
+                        <select
+                            value={gradeFilter}
+                            onChange={(e) => setGradeFilter(e.target.value)}
+                            className="w-full appearance-none px-6 py-4 rounded-2xl bg-white border-2 border-border/50 focus:border-primary/50 outline-none font-bold text-sm transition-all pr-12 shadow-sm"
+                        >
+                            <option value="all">학년 전체</option>
+                            {grades.map(grade => (
+                                <option key={grade} value={grade}>{grade}학년</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </div>
+                    </div>
+
+                    <div className="relative">
+                        <select
+                            value={classFilter}
+                            onChange={(e) => setClassFilter(e.target.value)}
+                            className="w-full appearance-none px-6 py-4 rounded-2xl bg-white border-2 border-border/50 focus:border-primary/50 outline-none font-bold text-sm transition-all pr-12 shadow-sm"
+                        >
+                            <option value="all">반 전체</option>
+                            {classes.map(cls => (
+                                <option key={cls} value={cls}>{cls}반</option>
+                            ))}
+                        </select>
+                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Gallery Grid */}
@@ -596,6 +696,11 @@ export default function Showcase() {
                                         <p className="text-[11px] text-muted-foreground/80 font-semibold">
                                             카테고리: {getCategoryText(project.type)}
                                         </p>
+                                        {(project.school || project.grade) && (
+                                            <p className="text-[11px] text-primary/70 font-black">
+                                                소속: {project.school} {project.grade ? `${project.grade}학년` : ""} {project.classGroup ? `${project.classGroup}반` : ""}
+                                            </p>
+                                        )}
                                         {project.createdAt && (
                                             <p className="text-[11px] text-muted-foreground/80 font-semibold">
                                                 등록일: {project.createdDateKey}

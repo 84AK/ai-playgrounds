@@ -54,18 +54,24 @@ function ResultContent() {
                     // 신버전 flat 포맷
                     myResult = result.data.results.find((r: any) =>
                         (r.author || r.Author) === author &&
-                        (r.mbti_type || r.type) === type
+                        (r.MBTI_Type || r.mbti_type || r.type) === type
                     );
                 }
 
-                if (myResult && (myResult.name || myResult.description)) {
+                if (myResult && ((myResult.Name || myResult.name) || (myResult.Description || myResult.description))) {
+                    const resName = myResult.Name || myResult.name;
+                    const resDesc = myResult.Description || myResult.description;
+                    const resStrengths = myResult.Strengths || myResult.strengths;
+                    const resCompatibility = myResult.Compatibility || myResult.compatibility;
+                    const resCharacter = myResult.Character || myResult.character;
+
                     setMbti(prev => ({
                         ...prev,
-                        title: myResult.name || prev.title,
-                        desc: (myResult.description || prev.desc) +
-                            (myResult.strengths ? `\n\n💪 강점/약점: ${myResult.strengths}` : '') +
-                            (myResult.compatibility ? `\n\n🎯 찰떡궁합: ${myResult.compatibility}` : '') +
-                            (myResult.character ? `\n\n✨ 한줄비유: ${myResult.character}` : ''),
+                        title: resName || prev.title,
+                        desc: (resDesc || prev.desc) +
+                            (resStrengths ? `\n\n💪 강점/약점: ${resStrengths}` : '') +
+                            (resCompatibility ? `\n\n🎯 찰떡궁합: ${resCompatibility}` : '') +
+                            (resCharacter ? `\n\n✨ 한줄비유: ${resCharacter}` : ''),
                     }));
                 }
             } catch (err) {
