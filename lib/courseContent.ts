@@ -3,7 +3,7 @@ import path from "path";
 
 export type CourseTrack = "MBTI" | "POSE";
 
-const APPS_SCRIPT_URL = process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "";
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL || "";
 
 function getLocalFilePath(track: CourseTrack, weekId: number) {
   const filePrefix = track === "POSE" ? "pose_week" : "mbti_week";

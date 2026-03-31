@@ -5,6 +5,13 @@ export async function POST(request: Request) {
   try {
     const { fileUrl, referenceCode, objective, week } = await request.json();
     const apiKey = process.env.GOOGLE_AI_API_KEY;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    const authHeader = request.headers.get('Authorization');
+
+    // 1. 관리자 인증 체크
+    if (!authHeader || authHeader !== `Bearer ${adminPassword}`) {
+      return NextResponse.json({ error: 'Unauthorized: 관리자 인증이 필요합니다.' }, { status: 401 });
+    }
 
     if (!apiKey) {
       return NextResponse.json({ error: 'Gemini API Key is not configured' }, { status: 500 });

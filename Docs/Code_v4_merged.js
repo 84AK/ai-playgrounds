@@ -105,7 +105,13 @@ function doPost(e) {
       const { user_id, course_type, week, grade_class, file_name, file_base64, mime_type } = data;
       try {
         const rootFolder = DriveApp.getFolderById(TARGET_FOLDER_ID);
-        const weekFolderName = (week.toString() + "주차").normalize("NFC");
+        // ✅ [2026-03-31 수정] course_type에 따라 폴더명 분기
+        //    POSE → "POSE_Week1" ~ "POSE_Week4"
+        //    MBTI (그 외) → 기존 "1주차" ~ "4주차" 방식 유지
+        const weekNum = Number(week);
+        const weekFolderName = (course_type && course_type.toUpperCase() === 'POSE')
+          ? `POSE_Week${weekNum}`.normalize("NFC")
+          : (week.toString() + "주차").normalize("NFC");
         const weekFolder = getOrCreateSubFolder(rootFolder, weekFolderName);
         const classFolderName = (grade_class || "기타").toString().normalize("NFC");
         const targetFolder = getOrCreateSubFolder(weekFolder, classFolderName);

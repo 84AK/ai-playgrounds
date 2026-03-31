@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ProgressData, getCachedProgress, fetchAndCacheProgress, isCacheStale } from "@/lib/progressSync";
-import { postAppsScript, delay } from "@/lib/appsScriptClient";
+import { postAppsScript, delay, getAppsScriptJson } from "@/lib/appsScriptClient";
 
 interface HomeworkDashboardProps {
     nickname: string;
@@ -35,13 +35,16 @@ export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) 
         const refreshProgress = async () => {
             setIsLoading(true);
             try {
-                // detailed 정보를 포함하기 위해 직접 fetch 호출 (APPS_SCRIPT_URL 사용)
-                const url = new URL(process.env.NEXT_PUBLIC_APPS_SCRIPT_URL || "");
-                url.searchParams.set("action", "getProgress");
-                url.searchParams.set("user_id", nickname);
+                // 보안이 강화된 입/출력 도구 함수 사용 (내부적으로 /api/proxy-apps-script 호출)
+                const res = await getAppsScriptJson<{ 
+                    status: string, 
+                    data: ProgressData, 
+                    detailed: Record<string, { status: string, fileName: string }> 
+                }>(new URLSearchParams({
+                    action: "getProgress",
+                    user_id: nickname
+                }));
 
-                const response = await fetch(url.toString());
-                const res = await response.json();
                 if (res.status === "success") {
                     setProgress(res.data);
                     setDetailedStatus(res.detailed || {});

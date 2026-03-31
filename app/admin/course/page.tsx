@@ -52,7 +52,7 @@ export default async function AdminCoursePage(props: {
                             🧑‍🏫 학생 피드백 하러가기
                         </Link>
                         <Link
-                            href={track === "POSE" ? `/pose/week${weekId}` : `/course/${weekId}`}
+                            href={track === "POSE" ? `/pose/week${weekId}` : `/mbti/week${weekId}`}
                             className="rounded-2xl border border-border px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
                         >
                             현재 학습 페이지 보기

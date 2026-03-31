@@ -1,6 +1,7 @@
 import Link from "next/link";
 import MarkdownContent from "../../../components/MarkdownContent";
 import UploadHomework from "./UploadHomework";
+import PoseSubmissionTrigger from "./PoseSubmissionTrigger";
 import { getCourseContent } from "@/lib/courseContent";
 
 export async function generateStaticParams() {
@@ -41,16 +42,15 @@ export default async function PoseCoursePage(props: { params: Promise<{ weekId: 
             <div className="pointer-events-none absolute inset-x-0 top-0 h-[260px] bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.18),transparent_34%)]" />
 
             {/* Navigation Header */}
-            <header className="sticky top-0 inset-x-0 z-40 flex h-16 items-center border-b border-[#2F3D4A]/10 bg-white/80 px-6 backdrop-blur-xl">
-                <div className="max-w-4xl mx-auto w-full flex items-center justify-between">
-                    <Link href="/study-lab" className="text-sm font-bold text-slate-600 hover:text-blue-500 transition-colors flex items-center gap-2">
-                        ← My Study Lab 돌아가기
+            <header className="sticky top-0 inset-x-0 z-40 flex h-20 items-center border-b border-[#2F3D4A]/10 bg-white/80 px-6 backdrop-blur-xl">
+                <div className="max-w-5xl mx-auto w-full flex items-center justify-between">
+                    <Link href="/study-lab" className="group text-sm font-bold text-slate-600 hover:text-blue-600 transition-all flex items-center gap-2">
+                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-100 group-hover:bg-blue-100 transition-colors">←</span>
+                        My Study Lab
                     </Link>
-                    <div className="flex gap-2">
-                        <span className="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-[10px] font-black tracking-widest uppercase border-2 border-blue-600">
-                            POSE Week {poseWeekNum}
-                        </span>
-                    </div>
+                    {!errorLoading && (
+                        <PoseSubmissionTrigger weekId={poseWeekNum} />
+                    )}
                 </div>
             </header>
 

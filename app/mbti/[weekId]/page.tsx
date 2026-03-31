@@ -6,10 +6,10 @@ import { getCourseContent } from "@/lib/courseContent";
 
 export async function generateStaticParams() {
     return [
-        { weekId: "1" },
-        { weekId: "2" },
-        { weekId: "3" },
-        { weekId: "4" },
+        { weekId: "week1" },
+        { weekId: "week2" },
+        { weekId: "week3" },
+        { weekId: "week4" },
     ];
 }
 
@@ -17,7 +17,8 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
     const params = await (props.params instanceof Promise ? props.params : Promise.resolve(props.params));
     const weekId = params.weekId;
 
-    const mbtiWeekNum = parseInt(weekId);
+    // "week1" -> "1" 추출 로직 추가
+    const mbtiWeekNum = parseInt(weekId.replace('week', ''));
     const isValidWeek = !isNaN(mbtiWeekNum) && mbtiWeekNum >= 1 && mbtiWeekNum <= 4;
 
     let content = "";

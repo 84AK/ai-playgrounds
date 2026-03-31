@@ -7,21 +7,45 @@ export function getAppsScriptUrl() {
     return APPS_SCRIPT_URL;
 }
 
-export async function postAppsScript(payload: Record<string, unknown>) {
-    const url = getAppsScriptUrl();
+export async function postAppsScript<T = any>(payload: Record<string, unknown>, token?: string): Promise<T> {
+    const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+    };
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
 
-    await fetch(url, {
+    const res = await fetch("/api/proxy-apps-script", {
         method: "POST",
-        mode: "no-cors",
+        headers,
         body: JSON.stringify(payload),
     });
+
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+
+    return (await res.json()) as T;
 }
 
-export async function getAppsScriptJson<T>(params: URLSearchParams) {
-    const url = getAppsScriptUrl();
-    const res = await fetch(`${url}?${params.toString()}`, {
+export async function getAppsScriptJson<T>(params: URLSearchParams, token?: string) {
+    const headers: Record<string, string> = {};
+    if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(`/api/proxy-apps-script?${params.toString()}`, {
+        method: "GET",
+        headers,
         cache: "no-store",
     });
+    
+    if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+    }
+    
     return (await res.json()) as T;
 }
 

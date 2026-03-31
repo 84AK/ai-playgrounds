@@ -1,4 +1,17 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# [보안] 환경변수 파일 — 절대 커밋 금지 (Rule 2 준수)
+.env
+.env.local
+.env.development
+.env.production
+.env.*.local
+!.env.example
+
+# [보안] 민감 설정 및 키 파일
+*.pem
+*.key
+secrets/
+config/secrets.json
+.pnpm-debug.log*
 
 # dependencies
 /node_modules
@@ -23,6 +36,10 @@
 # misc
 .DS_Store
 *.pem
+._*
+.Spotlight-V100
+.Trashes
+desktop.ini
 
 # debug
 npm-debug.log*
@@ -30,12 +47,23 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
-
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# turbo
+.turbo
+
+# temp
+/tmp
+/temp
+/logs
+
+# AI Agent & Tools
+.agents/
+.gemini/
+.cursor/
+.antigravity/

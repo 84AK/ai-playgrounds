@@ -1,4 +1,4 @@
-import { APPS_SCRIPT_URL } from "@/app/constants";
+import { getAppsScriptJson } from "@/lib/appsScriptClient";
 
 export interface ProgressData {
     mbti_week0: boolean;
@@ -40,8 +40,7 @@ async function hasMbtiMakerSaveRecord(userName: string): Promise<boolean> {
     };
 
     try {
-        const response = await fetch(`${APPS_SCRIPT_URL}?action=getAllMbtiData`);
-        const result = await response.json();
+        const result = await getAppsScriptJson<any>(new URLSearchParams({ action: "getAllMbtiData" }));
         const normalizedName = userName.trim();
 
         if (result?.status === "success" && result?.data) {
@@ -75,8 +74,10 @@ export function getCachedProgress(userName: string): CachedProgress | null {
 
 export async function fetchAndCacheProgress(userName: string): Promise<ProgressData | null> {
     try {
-        const response = await fetch(`${APPS_SCRIPT_URL}?action=getProgress&user_id=${encodeURIComponent(userName)}`);
-        const result = await response.json();
+        const result = await getAppsScriptJson<any>(new URLSearchParams({ 
+            action: "getProgress", 
+            user_id: userName 
+        }));
 
         if (result && result.data) {
             let isMbtiWeek0 = Boolean(result.data.mbti_week0);

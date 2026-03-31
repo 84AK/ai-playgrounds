@@ -45,28 +45,30 @@ export default function AdminFeedbackPage() {
     // [NEW] 정답 코드 자동 로드
     useEffect(() => {
         const loadReferenceCode = async () => {
+            if (!isAuthorized) return; // 인증되지 않은 경우 호출 안함
             try {
                 const res = await getAppsScriptJson<{ content: string }>(
-                    new URLSearchParams({ action: "getReferenceCode", week: selectedWeek.toString() })
+                    new URLSearchParams({ action: "getReferenceCode", week: selectedWeek.toString() }),
+                    password // 비밀번호 전달
                 );
                 if (res.content) {
                     setReferenceCode(res.content);
                 } else {
-                    setReferenceCode(""); // 파일이 없는 경우 초기화
+                    setReferenceCode(""); 
                 }
             } catch (err) {
                 console.error("정답 코드 로드 실패:", err);
             }
         };
         loadReferenceCode();
-    }, [selectedWeek]);
+    }, [selectedWeek, isAuthorized, password]);
 
     // [NEW] 학생 제출 상태 및 주차별 피드백 실시간 확인
     useEffect(() => {
         const checkSubmissionAndFeedback = async () => {
-            if (!selectedStudent) {
+            if (!selectedStudent || !isAuthorized) {
                 setStudentSubmission(null);
-                setFeedback(""); // 학생 선택 해제가 되면 에디터 비우기
+                setFeedback(""); 
                 return;
             }
             try {
@@ -76,14 +78,14 @@ export default function AdminFeedbackPage() {
                         action: "checkUserStatus", 
                         user_id: selectedStudent.name, 
                         week: selectedWeek.toString() 
-                    })
+                    }),
+                    password // 비밀번호 전달
                 );
                 if (res.data) {
                     setStudentSubmission({
                         status: res.data.submissionStatus,
                         fileName: res.data.fileName
                     });
-                    // 해당 주차의 피드백으로 에디터 채우기 (없으면 빈 문자열)
                     setFeedback(res.data.feedback || "");
                 }
             } catch (err) {
@@ -93,29 +95,30 @@ export default function AdminFeedbackPage() {
             }
         };
         checkSubmissionAndFeedback();
-    }, [selectedStudent, selectedWeek]);
+    }, [selectedStudent, selectedWeek, isAuthorized, password]);
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
-        // 환경변수 또는 기본값 체크
-        const adminPass = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "";
-        if (password === adminPass) {
-            setIsAuthorized(true);
-            fetchStudents();
-        } else {
-            alert("비밀번호가 틀렸습니다.");
-        }
+        // 더 이상 클라이언트에서 직접 비교하지 않고 첫 요청을 시도하여 인증 여부 확인
+        fetchStudents();
     };
 
     const fetchStudents = async () => {
         setLoading(true);
+        setStatusMsg("");
         try {
             const res = await getAppsScriptJson<{ data: Student[] }>(
-                new URLSearchParams({ action: "getStudentList" })
+                new URLSearchParams({ action: "getStudentList" }),
+                password // 입력된 비밀번호를 전송
             );
-            if (res.data) setStudents(res.data);
-        } catch (err) {
+            if (res.data) {
+                setStudents(res.data);
+                setIsAuthorized(true); // 응답이 성공(200)이면 인증된 것으로 간주
+            }
+        } catch (err: any) {
             console.error(err);
+            alert("비밀번호가 틀렸거나 접근 권한이 없습니다.");
+            setIsAuthorized(false);
         }
         setLoading(false);
     };
@@ -130,7 +133,7 @@ export default function AdminFeedbackPage() {
                 user_id: selectedStudent.name,
                 week: selectedWeek, // 주차 정보 추가
                 feedback: feedback
-            });
+            }, password); // 비밀번호 전달
             setStatusMsg("✅ 피드백 전송 완료!");
             fetchStudents(); // 목록 새로고침
         } catch (err) {
@@ -155,10 +158,13 @@ export default function AdminFeedbackPage() {
             const fileUrl = statusRes.data?.fileUrl;
             if (!fileUrl) throw new Error("제출된 파일이 없거나 찾을 수 없습니다.");
 
-            // 2. AI 분석 API 호출 (파일 다운로드 및 압축 해제는 서버에서 처리하여 CORS 회피)
+            // 2. AI 분석 API 호출 (관리자 인증 헤더 포함)
             const aiRes = await fetch('/api/analyze-code', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${password}` // 비밀번호 전달
+                },
                 body: JSON.stringify({
                     fileUrl,
                     referenceCode,

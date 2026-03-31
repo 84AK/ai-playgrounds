@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { APPS_SCRIPT_URL } from "../constants";
+import { getAppsScriptJson, postAppsScript } from "@/lib/appsScriptClient";
 import useLocalProfile from "@/hooks/useLocalProfile";
 
 export default function MBTIMaker() {
@@ -199,8 +199,7 @@ ISTJ,완벽한 기록술사,매뉴얼대로 움직이는 정확함,책임감이 
 
         setIsLoadingData(true);
         try {
-            const response = await fetch(`${APPS_SCRIPT_URL}?action=getAllMbtiData`);
-            const result = await response.json();
+            const result = await getAppsScriptJson<any>(new URLSearchParams({ action: "getAllMbtiData" }));
 
             let isValid = false;
             let loadedQuestions: any[] = [];
@@ -218,19 +217,14 @@ ISTJ,완벽한 기록술사,매뉴얼대로 움직이는 정확함,책임감이 
                 }
             } else if (result.status === "success" && result.data) {
                 // 신버전 flat 포맷
-                // 1. 비밀번호 확인은 showcase_links 테이블 기록 우선으로 조회, 
-                // 없으면 user_auth(로그인 유저 기준)로 단순 확인했다고 가정.
-                // 편의상 작가 이름만 넘어가면 불러올 수 있도록 하되, 본인 인증은 앱 진입 로그인에서 했다고 간주
-                const userAuth = result.data.users?.[authorName]; // 만약 avatar 등이 있다면 로그인 유저
+                const userAuth = result.data.users?.[authorName];
                 isValid = Boolean(userAuth || result.data.questions?.some((q: any) => (q.author || q.Author) === authorName));
 
                 if (isValid) {
                     loadedQuestions = (result.data.questions || []).filter((q: any) => (q.author || q.Author) === authorName);
-                    // load existing result
                     const resultsArray = result.data.results || [];
                     loadedResults = resultsArray.filter((r: any) => (r.author || r.Author) === authorName);
 
-                    // 결과를 MbtiMaker 폼 구조에 맞게 매핑
                     loadedResults = loadedResults.map(r => ({
                         type: r.mbti_type || r.type,
                         name: r.name,
@@ -953,17 +947,13 @@ ISTJ,완벽한 기록술사,매뉴얼대로 움직이는 정확함,책임감이 
                                 setIsSaving(true);
                                 const targetType = calculateTargetType();
                                 try {
-                                    await fetch(APPS_SCRIPT_URL, {
-                                        method: 'POST',
-                                        mode: 'no-cors',
-                                        body: JSON.stringify({
-                                            action: 'saveMbti',
-                                            author: authorName,
-                                            password: password, // 비밀번호 포함하여 저장
-                                            type: targetType,
-                                            questions: questions,
-                                            results: results
-                                        })
+                                    await postAppsScript({
+                                        action: 'saveMbti',
+                                        author: authorName,
+                                        password: password, // 비밀번호 포함하여 저장
+                                        type: targetType,
+                                        questions: questions,
+                                        results: results
                                     });
 
                                     const syncPayload = {

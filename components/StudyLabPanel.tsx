@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { APPS_SCRIPT_URL } from "@/app/constants";
+import { getAppsScriptJson } from "@/lib/appsScriptClient";
 import useLocalProfile from "@/hooks/useLocalProfile";
 import { fetchAndCacheProgress, getCachedProgress, isCacheStale } from "@/lib/progressSync";
 
@@ -62,11 +62,10 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
   const fetchUserProgress = async (userName: string) => {
     setIsLoadingProgress(true);
     try {
-      const response = await fetch(APPS_SCRIPT_URL + "?" + new URLSearchParams({
+      const res = await getAppsScriptJson<any>(new URLSearchParams({
         action: "getProgress",
         user_id: userName
       }));
-      const res = await response.json();
       if (res.status === "success") {
         applyProgressData(res.data, res.detailed);
       }
@@ -83,7 +82,7 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
       if (weekIndex === 0) {
         router.push("/mbti");
       } else {
-        router.push(`/course/${weekIndex}`);
+        router.push(`/mbti/week${weekIndex}`);
       }
     } else {
       router.push(`/pose/week${weekIndex + 1}`);
