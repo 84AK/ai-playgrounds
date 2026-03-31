@@ -25,10 +25,15 @@ function getKoreanTime() {
 }
 
 // 🌐 하위 폴더 포함 모든 파일을 찾는 재귀 함수
-function findFileBySubfolders(folder, userId, week, isReference = false) {
+function findFileBySubfolders(folder, userId, week, isReference = false, courseType = "MBTI") {
   const files = folder.getFiles();
   const weekNum = week.toString().normalize("NFC");
-  const weekTarget = (weekNum + "주차").normalize("NFC");
+  
+  // ✅ [2026-03-31 수정] 코스별 검색 키워드 분기
+  let weekTarget = (weekNum + "주차").normalize("NFC");
+  if (courseType && courseType.toUpperCase() === 'POSE') {
+    weekTarget = (`POSE_Week${weekNum}`).normalize("NFC");
+  }
   const userIdClean = userId.toString().normalize("NFC");
   
   while (files.hasNext()) {
@@ -47,7 +52,7 @@ function findFileBySubfolders(folder, userId, week, isReference = false) {
   
   const subFolders = folder.getFolders();
   while (subFolders.hasNext()) {
-    const found = findFileBySubfolders(subFolders.next(), userId, week, isReference);
+    const found = findFileBySubfolders(subFolders.next(), userId, week, isReference, courseType);
     if (found) return found;
   }
   return null;
@@ -265,8 +270,12 @@ function doGet(e) {
 
     // 1. 상세 상태 확인
     if (action === 'checkUserStatus') {
-      const { user_id, week } = params;
+      const { user_id, week, course_type } = params;
       const weekNum = parseInt(week);
+      const isPose = (course_type && course_type.toUpperCase() === 'POSE');
+      
+      // ✅ [2026-03-31 수정] 코스별 컬럼 인덱스 매핑
+      const progressColIndex = isPose ? (4 + weekNum) : weekNum;
       
       let sheetStatus = "not_found", fileUrl = "", fileName = "";
       const pSheet = ss.getSheetByName(SHEET_PROGRESS);
@@ -274,16 +283,16 @@ function doGet(e) {
         const pRows = pSheet.getDataRange().getValues();
         for (let i = 1; i < pRows.length; i++) {
           if (pRows[i][0].toString().trim() === user_id.toString().trim()) {
-            const val = pRows[i][weekNum];
+            const val = pRows[i][progressColIndex];
             if (val === true || val === "TRUE") sheetStatus = "verified";
-            fileUrl = pRows[i][weekNum + 8] || ""; 
+            fileUrl = pRows[i][progressColIndex + 8] || ""; 
             break;
           }
         }
       }
 
       const folder = DriveApp.getFolderById(TARGET_FOLDER_ID);
-      const file = findFileBySubfolders(folder, user_id, week);
+      const file = findFileBySubfolders(folder, user_id, week, false, course_type || "MBTI");
       if (file) {
         fileName = file.getName();
         if (sheetStatus === "not_found") sheetStatus = "verified"; 
@@ -400,8 +409,8 @@ function doGet(e) {
 
     // 5. 정답 코드 조회 
     if (action === 'getReferenceCode') {
-      const { week } = params;
-      const content = getReferenceCode(week); 
+      const { week, course_type } = params;
+      const content = getReferenceCode(week, course_type || "MBTI"); 
       return createJSONResponse({ status: "success", content: content });
     }
 
@@ -410,10 +419,10 @@ function doGet(e) {
 }
 
 // 정답 코드 조회 로직
-function getReferenceCode(week) {
+function getReferenceCode(week, courseType = "MBTI") {
   try {
     const folder = DriveApp.getFolderById(REFERENCE_FOLDER_ID);
-    const file = findFileBySubfolders(folder, "", week, true);
+    const file = findFileBySubfolders(folder, "", week, true, courseType);
     if (file) {
       const mime = file.getMimeType();
       if (mime === "application/vnd.google-apps.document") {

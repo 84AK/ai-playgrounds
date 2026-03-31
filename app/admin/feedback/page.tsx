@@ -22,6 +22,8 @@ export default function AdminFeedbackPage() {
     const [referenceCode, setReferenceCode] = useState("");
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [selectedWeek, setSelectedWeek] = useState(1);
+    const [selectedCourse, setSelectedCourse] = useState<"MBTI" | "POSE">("MBTI");
+    const [showPassword, setShowPassword] = useState(false);
     const [studentSubmission, setStudentSubmission] = useState<{ status: string; fileName: string } | null>(null);
     const [isValidating, setIsValidating] = useState(false);
     const [activeTab, setActiveTab] = useState("전체");
@@ -48,7 +50,11 @@ export default function AdminFeedbackPage() {
             if (!isAuthorized) return; // 인증되지 않은 경우 호출 안함
             try {
                 const res = await getAppsScriptJson<{ content: string }>(
-                    new URLSearchParams({ action: "getReferenceCode", week: selectedWeek.toString() }),
+                    new URLSearchParams({ 
+                        action: "getReferenceCode", 
+                        week: selectedWeek.toString(),
+                        course_type: selectedCourse 
+                    }),
                     password // 비밀번호 전달
                 );
                 if (res.content) {
@@ -61,7 +67,7 @@ export default function AdminFeedbackPage() {
             }
         };
         loadReferenceCode();
-    }, [selectedWeek, isAuthorized, password]);
+    }, [selectedWeek, selectedCourse, isAuthorized, password]);
 
     // [NEW] 학생 제출 상태 및 주차별 피드백 실시간 확인
     useEffect(() => {
@@ -77,7 +83,8 @@ export default function AdminFeedbackPage() {
                     new URLSearchParams({ 
                         action: "checkUserStatus", 
                         user_id: selectedStudent.name, 
-                        week: selectedWeek.toString() 
+                        week: selectedWeek.toString(),
+                        course_type: selectedCourse
                     }),
                     password // 비밀번호 전달
                 );
@@ -95,7 +102,7 @@ export default function AdminFeedbackPage() {
             }
         };
         checkSubmissionAndFeedback();
-    }, [selectedStudent, selectedWeek, isAuthorized, password]);
+    }, [selectedStudent, selectedWeek, selectedCourse, isAuthorized, password]);
 
     const handleLogin = (e: React.FormEvent) => {
         e.preventDefault();
@@ -132,6 +139,7 @@ export default function AdminFeedbackPage() {
                 action: "updateFeedback",
                 user_id: selectedStudent.name,
                 week: selectedWeek, // 주차 정보 추가
+                course_type: selectedCourse, // 코스 정보 추가
                 feedback: feedback
             }, password); // 비밀번호 전달
             setStatusMsg("✅ 피드백 전송 완료!");
@@ -151,7 +159,8 @@ export default function AdminFeedbackPage() {
                 new URLSearchParams({ 
                     action: "checkUserStatus", 
                     user_id: selectedStudent.name,
-                    week: selectedWeek.toString()
+                    week: selectedWeek.toString(),
+                    course_type: selectedCourse
                 })
             );
 
@@ -169,7 +178,7 @@ export default function AdminFeedbackPage() {
                     fileUrl,
                     referenceCode,
                     week: selectedWeek,
-                    objective: `${selectedWeek}주차 과제 목표 달성 여부 분석`
+                    objective: `${selectedCourse} ${selectedWeek}주차 과제 목표 달성 여부 분석`
                 })
             });
 
@@ -187,20 +196,58 @@ export default function AdminFeedbackPage() {
 
     if (!isAuthorized) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <form onSubmit={handleLogin} className="p-8 bg-white rounded-3xl shadow-xl border border-slate-200 w-full max-w-md">
-                    <h1 className="text-2xl font-black mb-6 text-center text-[#2F3D4A]">선생님 로그인 🔐</h1>
-                    <input
-                        type="password"
-                        placeholder="관리자 비밀번호 입력"
-                        className="w-full p-4 border-2 border-slate-200 rounded-2xl mb-4 focus:border-primary outline-none"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                    />
-                    <button className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-lg hover:bg-primary/90">
-                        입장하기
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+                <form onSubmit={handleLogin} className="p-10 bg-white/80 backdrop-blur-xl rounded-[40px] shadow-2xl border border-white w-full max-w-md animate-in fade-in zoom-in duration-500">
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl mb-4">
+                            <span className="text-3xl">🔐</span>
+                        </div>
+                        <h1 className="text-2xl font-black text-[#2F3D4A]">선생님 로그인</h1>
+                        <p className="text-slate-400 font-medium mt-1">대시보드 접속을 위해 비밀번호를 입력하세요.</p>
+                    </div>
+                    
+                    <div className="relative mb-6">
+                        <input
+                            type={showPassword ? "text" : "password"}
+                            placeholder="관리자 비밀번호 입력"
+                            className="w-full p-4 pr-14 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-primary focus:bg-white outline-none transition-all font-bold"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                        />
+                        <button 
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-primary transition-colors focus:outline-none"
+                        >
+                            {showPassword ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/></svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            )}
+                        </button>
+                    </div>
+
+                    <button 
+                        disabled={loading}
+                        className="w-full py-4 bg-primary text-white font-black rounded-2xl shadow-lg shadow-primary/20 hover:bg-primary/90 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-70 disabled:translate-y-0 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                    >
+                        {loading ? (
+                            <>
+                                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                로그인 중...
+                            </>
+                        ) : (
+                            "입장하기"
+                        )}
                     </button>
-                    {/* 보안을 위해 비밀번호 힌트 제거 */}
+                    
+                    <div className="mt-8 pt-6 border-t border-slate-50 text-center">
+                        <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
+                            🔒 Security Notice<br />
+                            비밀번호는 .env.local 및 Vercel 환경변수에서 관리됩니다.
+                        </p>
+                    </div>
                 </form>
             </div>
         );
@@ -309,24 +356,40 @@ export default function AdminFeedbackPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                                     <div>
                                         <label className="block text-sm font-bold text-slate-500 mb-2">과제 주차 선택</label>
-                                        <select 
-                                            value={selectedWeek}
-                                            onChange={(e) => setSelectedWeek(Number(e.target.value))}
-                                            className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-primary font-bold"
-                                        >
-                                            {[1, 2, 3, 4].map(w => (
-                                                <option key={w} value={w}>{w}주차 과제</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col justify-end">
-                                        <div className={`flex items-center gap-3 p-4 border-2 rounded-2xl transition-all h-[56px] ${referenceCode ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-600 font-black animate-pulse'}`}>
-                                            <div className={`w-3 h-3 rounded-full ${referenceCode ? 'bg-green-500' : 'bg-red-500 animate-ping'}`}></div>
-                                            <p className="text-sm">
-                                                {referenceCode ? `✅ ${selectedWeek}주차 정답 로드 완료` : `⚠️ ${selectedWeek}주차 정답 파일 찾지 못함`}
-                                            </p>
+                                        <div className="relative">
+                                            <select 
+                                                value={selectedWeek}
+                                                onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                                                className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-primary font-bold appearance-none cursor-pointer"
+                                            >
+                                                {[1, 2, 3, 4].map(w => (
+                                                    <option key={w} value={w}>{selectedCourse === 'MBTI' ? 'MBTI ' : 'POSE '} {w}주차 과제</option>
+                                                ))}
+                                            </select>
+                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">▼</div>
                                         </div>
                                     </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-slate-500 mb-2">코스 선택</label>
+                                        <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
+                                            {["MBTI", "POSE"].map(course => (
+                                                <button
+                                                    key={course}
+                                                    onClick={() => setSelectedCourse(course as any)}
+                                                    className={`flex-1 py-3 px-4 rounded-xl text-sm font-black transition-all ${selectedCourse === course ? 'bg-white text-primary shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                                >
+                                                    {course}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className={`mb-8 flex items-center gap-3 p-4 border-2 rounded-2xl transition-all h-[56px] ${referenceCode ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-600 font-black animate-pulse'}`}>
+                                    <div className={`w-3 h-3 rounded-full ${referenceCode ? 'bg-green-500' : 'bg-red-500 animate-ping'}`}></div>
+                                    <p className="text-sm font-bold">
+                                        {referenceCode ? `✅ ${selectedCourse} ${selectedWeek}주차 정답 로드 완료` : `⚠️ ${selectedCourse} ${selectedWeek}주차 정답 파일 찾지 못함`}
+                                    </p>
                                 </div>
 
                                 <div className="relative group">
