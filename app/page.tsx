@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import useLocalProfile from "@/hooks/useLocalProfile";
 import StudyLabPanel from "@/components/StudyLabPanel";
+import ShowcaseCarousel from "@/components/ShowcaseCarousel";
 
 export default function Home() {
   const profile = useLocalProfile();
@@ -137,16 +138,18 @@ export default function Home() {
             </div>
 
             {/* Row 2, Column 1: Showcase Section */}
-            <div className="bento-item flex flex-col justify-between">
+            <div className="bento-item flex flex-col justify-between overflow-hidden">
               <div className="relative z-10 space-y-5">
                 <div className="inline-flex items-center gap-1 px-3 py-1 bg-amber-100 border-2 border-[#2F3D4A] text-[#2F3D4A] text-[10px] font-black rounded-full uppercase">🤝 Community</div>
-                <h3 className="text-3xl font-black tracking-tighter text-[#2F3D4A]">우리 프로젝트<br />전시관 (Showcase)</h3>
-                <p className="text-slate-600 text-sm font-bold leading-relaxed">
-                  다른 친구들의 창의적인 아이디어를 <br />
-                  공유하고 영감을 얻으세요.
+                <h3 className="text-3xl font-black tracking-tighter text-[#2F3D4A]">우리 프로젝트 전시관</h3>
+                <p className="text-slate-600 text-sm font-bold leading-relaxed mb-4">
+                  다른 친구들의 창의적인 아이디어를 공유하고 영감을 얻으세요.
                 </p>
+                
+                {/* [NEW] 무한 스크롤 캐러셀 삽입 */}
+                <ShowcaseCarousel />
               </div>
-              <Link href="/showcase" className="w-fit text-sm font-black text-primary underline underline-offset-4 hover:text-primary/80 transition-colors uppercase mt-8">
+              <Link href="/showcase" className="w-fit text-sm font-black text-primary underline underline-offset-4 hover:text-primary/80 transition-colors uppercase mt-4">
                 전체 작품 구경하러 가기 ➡️
               </Link>
             </div>

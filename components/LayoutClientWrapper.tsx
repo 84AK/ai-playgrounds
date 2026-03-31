@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ClientNavbar from "./ClientNavbar";
 import Footer from "./Footer";
 import PrivacyModal from "./PrivacyModal";
 import PrivacyPolicyModal from "./PrivacyPolicyModal";
+import MaintenanceOverlay from "./MaintenanceOverlay";
 
 interface LayoutClientWrapperProps {
   children: React.ReactNode;
@@ -12,6 +13,18 @@ interface LayoutClientWrapperProps {
 
 export default function LayoutClientWrapper({ children }: LayoutClientWrapperProps) {
   const [isPrivacyPolicyModalOpen, setIsPrivacyPolicyModalOpen] = useState(false);
+  const [isMaintenance, setIsMaintenance] = useState(false);
+
+  useEffect(() => {
+    // 환경 변수 기반 점검 모드 확인
+    if (process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true") {
+      setIsMaintenance(true);
+    }
+  }, []);
+
+  if (isMaintenance) {
+    return <MaintenanceOverlay isVisible={true} />;
+  }
 
   return (
     <>

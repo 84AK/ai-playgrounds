@@ -32,6 +32,7 @@ function extractContentFromSheetResponse(result: unknown): string | null {
 
 export async function getCourseContent(track: CourseTrack, weekId: number) {
   if (!APPS_SCRIPT_URL) {
+    console.warn(`⚠️ [CourseContent] APPS_SCRIPT_URL is missing. Falling back to local content for ${track} week ${weekId}`);
     // 로컬 개발 환경 등에서 URL이 없을 때만 로컬 파일을 읽도록 처리
     try {
       const local = await readLocalContent(track, weekId);
@@ -42,10 +43,24 @@ export async function getCourseContent(track: CourseTrack, weekId: number) {
   }
 
   try {
-    const res = await fetch(
-      `${APPS_SCRIPT_URL}?action=getCourseContent&track=${encodeURIComponent(track)}&week=${weekId}`,
-      { cache: "no-store" }
-    );
+    const gasUrl = new URL(APPS_SCRIPT_URL);
+    gasUrl.searchParams.set("action", "getCourseContent");
+    gasUrl.searchParams.set("track", track);
+    gasUrl.searchParams.set("week", weekId.toString());
+
+    console.log(`📡 [CourseContent] Fetching: ${gasUrl.toString().substring(0, 100)}...`);
+
+    const res = await fetch(gasUrl.toString(), { 
+        cache: "no-store",
+        redirect: "follow"
+    });
+
+    if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`❌ [CourseContent] GAS Error (${res.status}):`, errorText.substring(0, 200));
+        throw new Error(`Apps Script responded with ${res.status}`);
+    }
+
     const result = await res.json();
     console.log(`[DEBUG] GAS Response (${track}, week ${weekId}):`, JSON.stringify(result).substring(0, 100) + "...");
     

@@ -25,18 +25,29 @@ export async function GET(request: Request) {
     }
 
     if (!APPS_SCRIPT_URL) {
-      return NextResponse.json({ error: 'Apps Script URL not configured' }, { status: 500 });
+      console.error('❌ [Proxy-GET] APPS_SCRIPT_URL is not configured in .env.local or Vercel Settings');
+      return NextResponse.json({ error: 'Apps Script URL not configured. .env.local을 확인해 주세요.' }, { status: 500 });
     }
 
-    // 2. Apps Script 호출 (GET)
-    const response = await fetch(`${APPS_SCRIPT_URL}?${searchParams.toString()}`, {
-      cache: 'no-store'
+    // 2. Apps Script 호출 (GET) - URL 객체로 안전하게 구성
+    const gasUrl = new URL(APPS_SCRIPT_URL);
+    searchParams.forEach((value, key) => gasUrl.searchParams.set(key, value));
+
+    console.log(`📡 [Proxy-GET] Fetching: ${gasUrl.toString().substring(0, 100)}...`);
+
+    const response = await fetch(gasUrl.toString(), {
+      cache: 'no-store',
+      redirect: 'follow'
     });
+
+    if (!response.ok) {
+        console.error(`❌ [Proxy-GET] GAS responded with ${response.status}`);
+    }
 
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error: any) {
-    console.error('Apps Script Proxy Error (GET):', error);
+    console.error('💥 [Proxy-GET] Error:', error.message);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -55,26 +66,42 @@ export async function POST(request: Request) {
     }
 
     if (!APPS_SCRIPT_URL) {
+      console.error('❌ [Proxy-POST] APPS_SCRIPT_URL is not configured');
       return NextResponse.json({ error: 'Apps Script URL not configured' }, { status: 500 });
     }
+
+    console.log(`📡 [Proxy-POST] Action: ${action}, URL: ${APPS_SCRIPT_URL.substring(0, 50)}...`);
 
     // 2. Apps Script 호출 (POST)
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
+      headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+      },
       body: JSON.stringify(body),
+      redirect: 'follow'
     });
 
-    // Apps Script의 POST 응답은 대개 텍스트이거나 리다이렉션이므로 유연하게 처리
+    // Apps Script의 POST 응답 처리
     let responseData;
-    try {
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
         responseData = await response.json();
-    } catch {
-        responseData = { success: response.ok };
+    } else {
+        const text = await response.text();
+        try {
+            responseData = JSON.parse(text);
+        } catch {
+            responseData = { success: response.ok, message: text || (response.ok ? 'Success' : 'Failed') };
+        }
     }
 
+    console.log(`✅ [Proxy-POST] Success: ${response.ok}`);
     return NextResponse.json(responseData);
   } catch (error: any) {
-    console.error('Apps Script Proxy Error (POST):', error);
+    console.error('💥 [Proxy-POST] Error:', error.message);
     return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
   }
 }
