@@ -4,6 +4,8 @@ import UploadHomework from "./UploadHomework";
 import PoseSubmissionTrigger from "./PoseSubmissionTrigger";
 import { getCourseContent } from "@/lib/courseContent";
 
+export const dynamic = "force-dynamic";
+
 export async function generateStaticParams() {
     return [
         { weekId: "1" },

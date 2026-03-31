@@ -12,239 +12,31 @@ declare global {
 export default function GameCenter() {
     const [modelUrl, setModelUrl] = useState("");
     const [gameState, setGameState] = useState<"setup" | "loading" | "playing" | "gameover">("setup");
-    const [score, setScore] = useState(0);
-    const [scriptLoaded, setScriptLoaded] = useState(false);
-
-    // TM References
-    const modelRef = useRef<any>(null);
-    const webcamRef = useRef<any>(null);
-
-    // Canvas & Game References
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const gameLoopRef = useRef<number | null>(null);
-    const predictLoopRef = useRef<number | null>(null);
-
     // Active Pose State
-    const currentPoseRef = useRef<string>("S"); // L, R, S
 
-    // Load Scripts dynamically
-    useEffect(() => {
-        const loadScripts = async () => {
-            if (window.tmPose) {
-                setScriptLoaded(true);
-                return;
-            }
+    // Script loading moved to iframe
 
-            const tfjs = document.createElement("script");
-            tfjs.src = "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js";
-            document.head.appendChild(tfjs);
-
-            tfjs.onload = () => {
-                const tm = document.createElement("script");
-                tm.src = "https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js";
-                document.head.appendChild(tm);
-                tm.onload = () => setScriptLoaded(true);
-            };
-        };
-
-        loadScripts();
-
-        return () => {
-            if (webcamRef.current) webcamRef.current.stop();
-            if (gameLoopRef.current) cancelAnimationFrame(gameLoopRef.current);
-            if (predictLoopRef.current) cancelAnimationFrame(predictLoopRef.current);
-        };
-    }, []);
+    const gameContainerRef = useRef<HTMLDivElement>(null);
 
     const initTeachableMachine = async () => {
-        if (!modelUrl || !scriptLoaded) return;
-
-        let url = modelUrl;
-        if (!url.endsWith("/")) url += "/";
-
-        const modelURL = url + "model.json";
-        const metadataURL = url + "metadata.json";
-
-        setGameState("loading");
-
-        try {
-            // Load the model and metadata
-            modelRef.current = await window.tmPose.load(modelURL, metadataURL);
-
-            // Convenience function to setup a webcam
-            const size = 200;
-            const flip = true; // whether to flip the webcam
-            webcamRef.current = new window.tmPose.Webcam(size, size, flip);
-            await webcamRef.current.setup(); // request access to the webcam
-            await webcamRef.current.play();
-
-            // Append webcam canvas to UI
-            const wcContainer = document.getElementById("webcam-container");
-            if (wcContainer) {
-                wcContainer.innerHTML = "";
-                wcContainer.appendChild(webcamRef.current.canvas);
-                webcamRef.current.canvas.style.borderRadius = "1rem";
-                webcamRef.current.canvas.style.width = "100%";
-                webcamRef.current.canvas.style.height = "100%";
-                webcamRef.current.canvas.style.objectFit = "cover";
-            }
-
-            setGameState("playing");
-            startGame();
-            predictLoop();
-
-        } catch (e) {
-            console.error(e);
-            alert("모델 로딩 중 에러가 발생했습니다. URL이 올바른지 확인해주세요.");
-            setGameState("setup");
-        }
+        if (!modelUrl) return;
+        setGameState("playing");
     };
 
-    const predictLoop = async () => {
-        if (!webcamRef.current || !modelRef.current) return;
-
-        webcamRef.current.update(); // update the webcam frame
-        const { pose, posenetOutput } = await modelRef.current.estimatePose(webcamRef.current.canvas);
-        const prediction = await modelRef.current.predict(posenetOutput);
-
-        let highestProb = 0;
-        let bestClass = "S";
-
-        for (let i = 0; i < prediction.length; i++) {
-            if (prediction[i].probability > highestProb) {
-                highestProb = prediction[i].probability;
-                bestClass = prediction[i].className.toUpperCase();
-            }
+    const toggleFullscreen = () => {
+        if (!gameContainerRef.current) return;
+        
+        if (!document.fullscreenElement) {
+            gameContainerRef.current.requestFullscreen().catch(err => {
+                console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+        } else {
+            document.exitFullscreen();
         }
-
-        // Update ref for the game loop to use
-        if (bestClass.includes("L") || bestClass === "LEFT") currentPoseRef.current = "L";
-        else if (bestClass.includes("R") || bestClass === "RIGHT") currentPoseRef.current = "R";
-        else currentPoseRef.current = "S";
-
-        predictLoopRef.current = window.requestAnimationFrame(predictLoop);
-    };
-
-    const startGame = () => {
-        setScore(0);
-
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-
-        // Make canvas full resolution
-        canvas.width = canvas.parentElement?.clientWidth || 800;
-        canvas.height = canvas.parentElement?.clientHeight || 600;
-
-        let internalScore = 0;
-
-        const player = {
-            x: canvas.width / 2 - 25,
-            y: canvas.height - 80,
-            width: 50,
-            height: 50,
-            speed: Number(5) // Fix: explicitly type as number
-        };
-
-        const obstacles: any[] = [];
-        let frameCount = 0;
-        let isGameOver = false;
-
-        const loop = () => {
-            if (isGameOver) return;
-
-            // Clear
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Background Stars Effect
-            ctx.fillStyle = "#ffffff";
-            if (Math.random() > 0.8) {
-                ctx.fillRect(Math.random() * canvas.width, Math.random() * canvas.height, 2, 2);
-            }
-
-            // Move Player based on Pose
-            if (currentPoseRef.current === "L") {
-                player.x -= player.speed;
-            } else if (currentPoseRef.current === "R") {
-                player.x += player.speed;
-            }
-
-            // Boundary constraints
-            if (player.x < 0) player.x = 0;
-            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-
-            // Draw Player (Rocket)
-            ctx.fillStyle = "#3b82f6"; // Primary blue
-            ctx.beginPath();
-            ctx.moveTo(player.x + player.width / 2, player.y);
-            ctx.lineTo(player.x + player.width, player.y + player.height);
-            ctx.lineTo(player.x, player.y + player.height);
-            ctx.closePath();
-            ctx.fill();
-
-            // Add exhaust flame
-            ctx.fillStyle = frameCount % 10 < 5 ? "#ef4444" : "#f59e0b";
-            ctx.beginPath();
-            ctx.moveTo(player.x + player.width / 2 - 10, player.y + player.height);
-            ctx.lineTo(player.x + player.width / 2 + 10, player.y + player.height);
-            ctx.lineTo(player.x + player.width / 2, player.y + player.height + 20 + Math.random() * 10);
-            ctx.closePath();
-            ctx.fill();
-
-            // Spawn Obstacles
-            frameCount++;
-            if (frameCount % 60 === 0) {
-                obstacles.push({
-                    x: Math.random() * (canvas.width - 40),
-                    y: -40,
-                    width: 40,
-                    height: 40,
-                    speed: 3 + Math.random() * 2 + (internalScore / 500) // Gets faster
-                });
-            }
-
-            // Update and Draw Obstacles
-            ctx.fillStyle = "#ef4444"; // Red asteroids
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                const obs = obstacles[i];
-                obs.y += obs.speed;
-
-                ctx.beginPath();
-                ctx.arc(obs.x + obs.width / 2, obs.y + obs.height / 2, obs.width / 2, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Collision Detection (Circle vs Rect approx)
-                if (
-                    player.x < obs.x + obs.width &&
-                    player.x + player.width > obs.x &&
-                    player.y < obs.y + obs.height &&
-                    player.y + player.height > obs.y
-                ) {
-                    isGameOver = true;
-                    setGameState("gameover");
-                }
-
-                // Remove if off screen, add score
-                if (obs.y > canvas.height) {
-                    obstacles.splice(i, 1);
-                    internalScore += 10;
-                    setScore(internalScore);
-                }
-            }
-
-            if (!isGameOver) {
-                gameLoopRef.current = window.requestAnimationFrame(loop);
-            }
-        };
-
-        loop();
     };
 
     const resetGame = () => {
-        setGameState("playing");
-        startGame();
+        setGameState("setup");
     };
 
     return (
@@ -280,7 +72,7 @@ export default function GameCenter() {
                                 <button
                                     onClick={initTeachableMachine}
                                     className="w-full py-4 bg-primary text-white rounded-xl font-black text-sm hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 shadow-lg shadow-primary/20 flex justify-center items-center"
-                                    disabled={!modelUrl || !scriptLoaded || gameState === "loading"}
+                                    disabled={!modelUrl || gameState === "loading"}
                                 >
                                     {gameState === "loading" ? (
                                         <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -288,7 +80,6 @@ export default function GameCenter() {
                                         "비행 준비 완료 (불러오기)"
                                     )}
                                 </button>
-                                {!scriptLoaded && <p className="text-xs text-amber-500 font-bold text-center">AI 엔진 로딩중...</p>}
                             </div>
                         ) : (
                             <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
@@ -297,12 +88,7 @@ export default function GameCenter() {
                         )}
                     </div>
 
-                    {/* WebCam Viewport (Hidden during setup) */}
-                    <div className={`glass-card bg-secondary/30 p-4 rounded-3xl border border-white/5 transition-all duration-500 ${gameState !== "setup" && gameState !== "loading" ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"}`}>
-                        <div className="aspect-square bg-black/50 rounded-2xl overflow-hidden relative" id="webcam-container">
-                            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-xs font-bold">Webcam Feed</div>
-                        </div>
-                    </div>
+                    {/* WebCam Viewport (Hidden during setup) - 게임 엔진 내부에서 관리하므로 제거 */}
 
                     <div className="glass-card bg-secondary/30 space-y-4 p-6 rounded-3xl border border-white/5">
                         <h2 className="font-black border-b border-border/50 pb-3 flex items-center gap-2">
@@ -310,16 +96,32 @@ export default function GameCenter() {
                         </h2>
                         <div className="space-y-4 pt-2">
                             <div className="flex items-center gap-4 group">
-                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary text-lg font-black group-hover:bg-primary group-hover:text-white transition-colors">L</div>
-                                <span className="text-sm font-bold">왼쪽으로 피하기</span>
+                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary text-lg font-black group-hover:bg-primary group-hover:text-white transition-colors">↑</div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-slate-700">UP</span>
+                                    <span className="text-[10px] text-muted-foreground font-medium">위로 이동</span>
+                                </div>
                             </div>
                             <div className="flex items-center gap-4 group">
-                                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 text-lg font-black group-hover:bg-blue-500 group-hover:text-white transition-colors">R</div>
-                                <span className="text-sm font-bold">오른쪽으로 피하기</span>
+                                <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 text-lg font-black group-hover:bg-blue-500 group-hover:text-white transition-colors">↓</div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-slate-700">DOWN</span>
+                                    <span className="text-[10px] text-muted-foreground font-medium">아래로 이동</span>
+                                </div>
                             </div>
                             <div className="flex items-center gap-4 group">
-                                <div className="w-12 h-12 rounded-2xl border-2 border-white/10 flex items-center justify-center text-muted-foreground text-lg font-black group-hover:border-white/40 transition-colors">S</div>
-                                <span className="text-sm font-bold">가운데 유지하기</span>
+                                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500 text-lg font-black group-hover:bg-amber-500 group-hover:text-white transition-colors">←</div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-slate-700">LEFT</span>
+                                    <span className="text-[10px] text-muted-foreground font-medium">왼쪽으로 이동</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4 group">
+                                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500 text-lg font-black group-hover:bg-purple-500 group-hover:text-white transition-colors">→</div>
+                                <div className="flex flex-col">
+                                    <span className="text-sm font-bold text-slate-700">RIGHT</span>
+                                    <span className="text-[10px] text-muted-foreground font-medium">오른쪽으로 이동</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -327,9 +129,27 @@ export default function GameCenter() {
 
                 {/* Game Area */}
                 <div className="lg:col-span-3 space-y-6">
-                    <div className="relative aspect-video rounded-[2.5rem] overflow-hidden bg-slate-950 shadow-2xl shadow-primary/10 group border border-white/5">
+                    <div 
+                        ref={gameContainerRef}
+                        className="relative min-h-[500px] md:h-[750px] w-full rounded-[2.5rem] overflow-hidden bg-slate-950 shadow-2xl shadow-primary/10 group border border-white/5"
+                    >
+                        {/* 전체 화면 버튼 (플로팅) */}
+                        <button
+                            onClick={toggleFullscreen}
+                            className="absolute top-6 right-6 z-30 w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-white transition-all opacity-0 group-hover:opacity-100"
+                            title="전체 화면"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                        </button>
 
-                        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-10" />
+                        {/* 통합된 비행기 게임 엔진 (Iframe) */}
+                        {gameState === "playing" && (
+                            <iframe
+                                src={`/games/airplane-game.html?model=${encodeURIComponent(modelUrl)}`}
+                                className="absolute inset-0 w-full h-full z-10 border-none"
+                                allow="camera; microphone; display-capture; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            />
+                        )}
 
                         {/* Overlays */}
                         <div className="absolute inset-0 z-20 pointer-events-none">
@@ -342,38 +162,6 @@ export default function GameCenter() {
                                         THE AI PILOT <br /><span className="text-primary">READY TO FLY?</span>
                                     </h3>
                                     <p className="text-sm text-muted-foreground font-medium">좌측 패널에 티처블 머신 모델 URL을 입력하세요.</p>
-                                </div>
-                            )}
-
-                            {gameState === "playing" && (
-                                <div className="absolute top-8 left-0 w-full flex justify-between px-10">
-                                    <div className="glass px-6 py-3 rounded-2xl border border-white/10 flex flex-col backdrop-blur-md">
-                                        <span className="text-[10px] font-black tracking-widest text-primary uppercase">Score</span>
-                                        <span className="text-3xl font-black text-white leading-none">{score}</span>
-                                    </div>
-
-                                    <div className="glass px-6 py-3 rounded-2xl border border-white/10 flex flex-col items-center justify-center backdrop-blur-md">
-                                        <span className="text-[10px] font-black tracking-widest text-muted-foreground uppercase">Current Pose</span>
-                                        <span className="text-2xl font-black text-white leading-none mt-1">{currentPoseRef.current}</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {gameState === "gameover" && (
-                                <div className="w-full h-full flex flex-col items-center justify-center text-center space-y-6 bg-red-950/80 backdrop-blur-md pointer-events-auto">
-                                    <h3 className="text-6xl font-black italic tracking-tighter text-red-500">
-                                        GAME OVER
-                                    </h3>
-                                    <div className="space-y-1">
-                                        <p className="text-lg text-white font-medium">최종 점수</p>
-                                        <p className="text-5xl font-black text-white">{score}</p>
-                                    </div>
-                                    <button
-                                        onClick={resetGame}
-                                        className="mt-8 px-10 py-4 bg-white text-red-950 rounded-2xl font-black hover:scale-105 active:scale-95 transition-all shadow-xl"
-                                    >
-                                        다시 도전하기 🔄
-                                    </button>
                                 </div>
                             )}
                         </div>

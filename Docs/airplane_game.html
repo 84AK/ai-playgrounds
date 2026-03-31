@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>✈️ 포즈 비행기 게임 | Pose Airplane Game</title>
+  <meta name="description" content="Teachable Machine 포즈 모델로 조종하는 비행기 장애물 회피 게임">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #060b18;
+      --accent: #00d4ff;
+      --accent2: #7b2fff;
+      --gold: #ffd700;
+      --danger: #ff4757;
+      --text: #e8f0fe;
+      --sub: #8892b0;
+      --border: rgba(255,255,255,0.1);
+      --font: 'Outfit', sans-serif;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse at 30% 60%, rgba(0,212,255,0.06) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 30%, rgba(123,47,255,0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    /* ===== 시작 화면 ===== */
+    #start-screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      background: radial-gradient(ellipse at center, #0c1628 0%, #060b18 100%);
+    }
+
+    .start-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 40px;
+      width: 480px;
+      max-width: 95vw;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 0 60px rgba(0,212,255,0.08), 0 20px 60px rgba(0,0,0,0.5);
+      text-align: center;
+    }
+
+    .game-icon { font-size: 72px; margin-bottom: 16px; animation: soar 3s ease-in-out infinite; }
+    @keyframes soar {
+      0%,100%{transform:translateY(0) rotate(-5deg)}
+      50%{transform:translateY(-12px) rotate(5deg)}
+    }
+
+    .game-title {
+      font-size: 2.4rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    .game-subtitle { font-size: 0.95rem; color: var(--sub); margin-bottom: 36px; }
+
+    .input-group { margin-bottom: 16px; text-align: left; }
+    .input-label { font-size: 0.8rem; color: var(--sub); margin-bottom: 8px; display: block; }
+    .input-field {
+      width: 100%;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,212,255,0.15); }
+
+    .btn-load {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(123,47,255,0.15));
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      color: var(--accent);
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 12px;
+    }
+    .btn-load:hover { background: rgba(0,212,255,0.25); transform: translateY(-2px); }
+    .btn-load:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .btn-start {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-family: var(--font);
+      font-size: 1.1rem;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: none;
+    }
+    .btn-start.visible { display: block; animation: popIn 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+    @keyframes popIn { from{transform:scale(0.8);opacity:0} to{transform:scale(1);opacity:1} }
+    .btn-start:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,212,255,0.4); }
+
+    .status-msg { font-size: 0.85rem; color: var(--sub); margin-top: 12px; min-height: 20px; }
+    .status-msg.loading { color: var(--accent); }
+    .status-msg.success { color: #2ecc71; }
+    .status-msg.error { color: var(--danger); }
+
+    .controls-hint {
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--sub);
+    }
+    .hint-item { display: flex; align-items: center; gap: 6px; }
+    .key-badge {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ===== 게임 화면 ===== */
+    #game-screen { display: none; position: relative; }
+
+    .hud {
+      position: absolute;
+      top: 16px; left: 16px; right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .score-box {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(0,212,255,0.3);
+      border-radius: 12px;
+      padding: 8px 16px;
+      backdrop-filter: blur(8px);
+    }
+    .score-label { font-size: 0.7rem; color: var(--sub); }
+    .score-val { font-size: 1.4rem; font-weight: 900; color: var(--accent); }
+
+    .lives-box {
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,71,87,0.3);
+      border-radius: 12px;
+      padding: 8px 16px;
+      backdrop-filter: blur(8px);
+      font-size: 1.4rem;
+    }
+
+    #game-canvas {
+      border-radius: 16px;
+      display: block;
+      border: 1px solid rgba(0,212,255,0.2);
+      box-shadow: 0 0 60px rgba(0,212,255,0.1);
+    }
+
+    /* ===== 카메라 미리보기 ===== */
+    #camera-preview {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      z-index: 200;
+    }
+    .camera-frame {
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid rgba(0,212,255,0.5);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(0,212,255,0.15);
+    }
+    #pose-canvas { display: block; width: 160px; height: 120px; }
+    .camera-label { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 0.72rem; color: var(--sub); }
+    .cam-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 1.2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .pose-indicator {
+      margin-top: 4px;
+      padding: 4px 12px;
+      background: rgba(0,212,255,0.1);
+      border: 1px solid rgba(0,212,255,0.3);
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 80px;
+      text-align: center;
+    }
+
+    /* ===== 게임 오버 ===== */
+    #gameover-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(6,11,24,0.88);
+      backdrop-filter: blur(12px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 150;
+    }
+    #gameover-overlay.visible { display: flex; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+    .gameover-card {
+      text-align: center;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 40px;
+      min-width: 320px;
+      box-shadow: 0 0 60px rgba(0,212,255,0.1);
+    }
+    .gameover-icon { font-size: 56px; margin-bottom: 12px; }
+    .gameover-title { font-size: 2rem; font-weight: 900; color: var(--danger); margin-bottom: 8px; }
+    .final-score { font-size: 3.5rem; font-weight: 900; color: var(--accent); }
+    .final-label { font-size: 0.9rem; color: var(--sub); margin-bottom: 32px; }
+
+    .btn-restart {
+      padding: 14px 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-right: 12px;
+    }
+    .btn-restart:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,212,255,0.4); }
+    .btn-menu {
+      padding: 14px 32px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--sub);
+      font-family: var(--font);
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .btn-menu:hover { border-color: var(--text); color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- ===== 시작 화면 ===== -->
+<div id="start-screen">
+  <div class="start-card">
+    <div class="game-icon">✈️</div>
+    <h1 class="game-title">Pose Flyer</h1>
+    <p class="game-subtitle">포즈로 조종하는 비행기 장애물 회피 게임</p>
+
+    <div class="input-group">
+      <label class="input-label" for="model-url">Teachable Machine 모델 URL</label>
+      <input
+        id="model-url"
+        class="input-field"
+        type="text"
+        placeholder="https://teachablemachine.withgoogle.com/models/XXXXX/"
+        autocomplete="off"
+      />
+    </div>
+
+    <button id="btn-load" class="btn-load" onclick="loadModel()">🤖 모델 불러오기</button>
+    <button id="btn-start" class="btn-start" onclick="startGame()">🎮 게임 시작!</button>
+    <p id="status-msg" class="status-msg">모델 URL을 입력하고 불러오기를 눌러주세요.</p>
+
+    <div class="controls-hint">
+      <div class="hint-item"><span class="key-badge">↑↓←→</span> 방향키로 이동</div>
+      <div class="hint-item"><span class="key-badge">WASD</span> WASD로 이동</div>
+      <div class="hint-item"><span class="key-badge">포즈</span> 몸으로 방향 제어</div>
+      <div class="hint-item"><span class="key-badge">❤️×3</span> 목숨 3개</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 게임 화면 ===== -->
+<div id="game-screen">
+  <div class="hud">
+    <div class="score-box">
+      <div class="score-label">SCORE</div>
+      <div class="score-val" id="score-val">0</div>
+    </div>
+    <div class="lives-box" id="lives-val">❤️❤️❤️</div>
+    <div class="score-box">
+      <div class="score-label">BEST</div>
+      <div class="score-val" id="best-val">0</div>
+    </div>
+  </div>
+  <canvas id="game-canvas" width="540" height="600"></canvas>
+</div>
+
+<!-- ===== 카메라 미리보기 ===== -->
+<div id="camera-preview">
+  <div class="camera-frame">
+    <canvas id="pose-canvas" width="160" height="120"></canvas>
+  </div>
+  <div class="camera-label">
+    <div class="cam-dot"></div>
+    <span>포즈 감지 중</span>
+  </div>
+  <div id="pose-indicator" class="pose-indicator">대기 중...</div>
+</div>
+
+<!-- ===== 게임 오버 ===== -->
+<div id="gameover-overlay">
+  <div class="gameover-card">
+    <div class="gameover-icon">💥</div>
+    <div class="gameover-title">GAME OVER</div>
+    <div class="final-score" id="final-score">0</div>
+    <div class="final-label">점수</div>
+    <button class="btn-restart" onclick="restartGame()">🔄 다시 시작</button>
+    <button class="btn-menu" onclick="goToMenu()">🏠 메뉴</button>
+  </div>
+</div>
+
+<script>
+/* ======================================================
+   ✅ POSE CONTROLLER MODULE
+====================================================== */
+const CONFIDENCE_THRESHOLD = 0.80;
+let poseModel = null, poseWebcam = null, poseActive = false, poseLoopId = null, poseCtx = null;
+
+async function loadModel() {
+  let url = document.getElementById('model-url').value.trim();
+  if (!url) { setStatus('❌ 모델 URL을 입력해주세요.', 'error'); return; }
+  if (!url.endsWith('/')) url += '/';
+  setStatus('⏳ 모델을 불러오는 중...', 'loading');
+  document.getElementById('btn-load').disabled = true;
+  try {
+    poseModel = await tmPose.load(url + 'model.json', url + 'metadata.json');
+    setStatus('✅ 모델 로딩 완료! 게임을 시작하세요.', 'success');
+    document.getElementById('btn-start').classList.add('visible');
+  } catch(e) {
+    setStatus('❌ 모델 로딩 실패. URL을 확인해주세요.', 'error');
+    document.getElementById('btn-load').disabled = false;
+  }
+}
+
+async function startPoseCamera() {
+  if (!poseModel) return;
+  const cam = document.getElementById('pose-canvas');
+  poseCtx = cam.getContext('2d');
+  poseWebcam = new tmPose.Webcam(200, 200, true);
+  await poseWebcam.setup();
+  await poseWebcam.play();
+  document.getElementById('camera-preview').style.display = 'flex';
+  poseActive = true;
+  poseRunLoop();
+}
+
+async function poseRunLoop() {
+  if (!poseActive) return;
+  poseWebcam.update();
+  await doPosePredict();
+  poseLoopId = requestAnimationFrame(poseRunLoop);
+}
+
+async function doPosePredict() {
+  if (!poseModel || !poseWebcam) return;
+  const { pose, posenetOutput } = await poseModel.estimatePose(poseWebcam.canvas);
+  const predictions = await poseModel.predict(posenetOutput);
+  const cam = document.getElementById('pose-canvas');
+  poseCtx.drawImage(poseWebcam.canvas, 0, 0, cam.width, cam.height);
+  if (pose) {
+    const s = cam.width / 200;
+    const kp = pose.keypoints.map(k => ({...k, position:{x:k.position.x*s, y:k.position.y*s}}));
+    tmPose.drawKeypoints(kp, 0.5, poseCtx);
+    tmPose.drawSkeleton(kp, 0.5, poseCtx);
+  }
+  let maxP = 0, topC = null;
+  for (const p of predictions) { if (p.probability > maxP) { maxP = p.probability; topC = p.className; } }
+  if (maxP >= CONFIDENCE_THRESHOLD && topC) {
+    const d = topC.toLowerCase();
+    document.getElementById('pose-indicator').textContent = `${dirEmoji(d)} ${d.toUpperCase()}`;
+    document.dispatchEvent(new CustomEvent('pose:direction', { detail: { direction: d } }));
+  } else {
+    document.getElementById('pose-indicator').textContent = '대기 중...';
+  }
+}
+
+function stopPose() {
+  poseActive = false;
+  if (poseLoopId) { cancelAnimationFrame(poseLoopId); poseLoopId = null; }
+  if (poseWebcam) { poseWebcam.stop(); poseWebcam = null; }
+  document.getElementById('camera-preview').style.display = 'none';
+}
+
+function dirEmoji(d) { return {up:'⬆️',down:'⬇️',left:'⬅️',right:'➡️'}[d] || ''; }
+function setStatus(msg, type='') {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = 'status-msg ' + type;
+}
+
+/* ======================================================
+   ✈️ AIRPLANE GAME LOGIC
+====================================================== */
+const W = 540, H = 600;
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+// 게임 상태
+let plane = { x: W/2, y: H*0.7, w: 52, h: 36, vx: 0, vy: 0, invincible: 0 };
+let stars = [];
+let obstacles = [];
+let score = 0, bestScore = 0, lives = 3;
+let gameRunning = false, gameLoopId = null, frameCount = 0;
+let keyState = {};
+
+// 파티클 (폭발)
+let particles = [];
+
+function initGame() {
+  plane = { x: W/2, y: H*0.7, w: 52, h: 36, vx: 0, vy: 0, invincible: 0 };
+  stars = [];
+  obstacles = [];
+  particles = [];
+  score = 0; lives = 3; frameCount = 0;
+  gameRunning = true;
+
+  // 별 초기화
+  for (let i = 0; i < 80; i++) {
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      size: Math.random() * 2 + 0.5,
+      speed: Math.random() * 3 + 1,
+      opacity: Math.random() * 0.7 + 0.3
+    });
+  }
+  updateHUD();
+}
+
+function updateHUD() {
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('lives-val').textContent = '❤️'.repeat(lives);
+  if (score > bestScore) { bestScore = score; document.getElementById('best-val').textContent = bestScore; }
+}
+
+// 장애물 생성
+function spawnObstacle() {
+  const types = ['meteor', 'cloud', 'satellite'];
+  const type = types[Math.floor(Math.random() * types.length)];
+  const size = 20 + Math.random() * 30;
+  obstacles.push({
+    x: Math.random() * (W - size * 2) + size,
+    y: -size,
+    size,
+    speed: 2 + score / 500,
+    type,
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.1
+  });
+}
+
+function gameUpdate() {
+  if (!gameRunning) return;
+  frameCount++;
+  score++;
+  if (score > bestScore) bestScore = score;
+  document.getElementById('score-val').textContent = score;
+  document.getElementById('best-val').textContent = bestScore;
+
+  // 비행기 이동 (키 상태 기반 부드러운 이동)
+  const spd = 4;
+  if (keyState['up'])    plane.vy = Math.max(plane.vy - 0.8, -spd);
+  if (keyState['down'])  plane.vy = Math.min(plane.vy + 0.8, spd);
+  if (keyState['left'])  plane.vx = Math.max(plane.vx - 0.8, -spd);
+  if (keyState['right']) plane.vx = Math.min(plane.vx + 0.8, spd);
+
+  // 감속
+  plane.vx *= 0.88; plane.vy *= 0.88;
+  plane.x = Math.max(plane.w/2, Math.min(W - plane.w/2, plane.x + plane.vx));
+  plane.y = Math.max(plane.h/2, Math.min(H - plane.h/2, plane.y + plane.vy));
+
+  if (plane.invincible > 0) plane.invincible--;
+
+  // 별 이동
+  for (const star of stars) {
+    star.y += star.speed;
+    if (star.y > H) { star.y = -5; star.x = Math.random() * W; }
+  }
+
+  // 장애물 스폰
+  if (frameCount % Math.max(40, 90 - Math.floor(score / 200)) === 0) spawnObstacle();
+
+  // 장애물 이동 + 충돌
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const ob = obstacles[i];
+    ob.y += ob.speed;
+    ob.rotation += ob.rotSpeed;
+    if (ob.y > H + 60) { obstacles.splice(i, 1); continue; }
+
+    // 충돌 검사 (원형 근사)
+    if (plane.invincible === 0) {
+      const dx = plane.x - ob.x;
+      const dy = plane.y - ob.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const hitR = ob.size * 0.7 + Math.min(plane.w, plane.h) * 0.35;
+      if (dist < hitR) {
+        lives--;
+        plane.invincible = 90;
+        explode(ob.x, ob.y);
+        obstacles.splice(i, 1);
+        updateHUD();
+        if (lives <= 0) { gameOver(); return; }
+      }
+    }
+  }
+
+  // 파티클
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.life--;
+    p.vx *= 0.95; p.vy *= 0.95;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  drawGame();
+  gameLoopId = requestAnimationFrame(gameUpdate);
+}
+
+function explode(x, y) {
+  for (let i = 0; i < 20; i++) {
+    const angle = (i / 20) * Math.PI * 2;
+    const speed = 2 + Math.random() * 4;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 30 + Math.random() * 20,
+      maxLife: 50,
+      color: ['#ff4757','#ffd700','#ff6b6b','#ffdd59'][Math.floor(Math.random()*4)]
+    });
+  }
+}
+
+function drawGame() {
+  // 우주 배경
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+  bgGrad.addColorStop(0, '#020510');
+  bgGrad.addColorStop(1, '#060b18');
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // 별
+  for (const star of stars) {
+    ctx.globalAlpha = star.opacity;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // 파티클
+  for (const p of particles) {
+    ctx.globalAlpha = p.life / 50;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // 장애물
+  for (const ob of obstacles) {
+    ctx.save();
+    ctx.translate(ob.x, ob.y);
+    ctx.rotate(ob.rotation);
+    if (ob.type === 'meteor') {
+      // 운석
+      const mg = ctx.createRadialGradient(-ob.size*0.3, -ob.size*0.3, 0, 0, 0, ob.size);
+      mg.addColorStop(0, '#aa7744');
+      mg.addColorStop(1, '#553311');
+      ctx.fillStyle = mg;
+      ctx.beginPath();
+      ctx.arc(0, 0, ob.size, 0, Math.PI * 2);
+      ctx.fill();
+      // 크레이터
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.beginPath(); ctx.arc(-ob.size*0.25, -ob.size*0.1, ob.size*0.2, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ob.size*0.2, ob.size*0.2, ob.size*0.12, 0, Math.PI*2); ctx.fill();
+      // 글로우
+      ctx.strokeStyle = 'rgba(255,100,30,0.4)';
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#ff6422';
+      ctx.stroke();
+    } else if (ob.type === 'cloud') {
+      // 구름
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = 'rgba(255,255,255,0.2)';
+      ctx.fillStyle = 'rgba(180,200,255,0.25)';
+      ctx.beginPath(); ctx.arc(0, 0, ob.size, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-ob.size*0.5, ob.size*0.1, ob.size*0.7, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ob.size*0.5, ob.size*0.15, ob.size*0.7, 0, Math.PI*2); ctx.fill();
+    } else {
+      // 위성
+      ctx.fillStyle = '#aab8c2';
+      ctx.fillRect(-ob.size*0.2, -ob.size*0.5, ob.size*0.4, ob.size);
+      ctx.fillStyle = '#00d4ff';
+      ctx.fillRect(-ob.size*0.9, -ob.size*0.15, ob.size*0.6, ob.size*0.3);
+      ctx.fillRect(ob.size*0.3, -ob.size*0.15, ob.size*0.6, ob.size*0.3);
+      ctx.strokeStyle = 'rgba(0,212,255,0.4)';
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 8; ctx.shadowColor = '#00d4ff';
+      ctx.strokeRect(-ob.size*0.9, -ob.size*0.15, ob.size*0.6, ob.size*0.3);
+      ctx.strokeRect(ob.size*0.3, -ob.size*0.15, ob.size*0.6, ob.size*0.3);
+    }
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // 비행기 (무적 시 깜빡임)
+  if (plane.invincible > 0 && Math.floor(frameCount / 5) % 2 === 0) {
+    // 깜빡임 - 생략
+  } else {
+    ctx.save();
+    ctx.translate(plane.x, plane.y);
+    const tilt = plane.vx * 2;
+    ctx.rotate(tilt * Math.PI / 180);
+
+    // 엔진 불꽃
+    const flameH = 18 + Math.random() * 8;
+    const flameGrad = ctx.createLinearGradient(0, 0, 0, flameH + 10);
+    flameGrad.addColorStop(0, 'rgba(0,212,255,0.9)');
+    flameGrad.addColorStop(0.5, 'rgba(57,255,20,0.6)');
+    flameGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = flameGrad;
+    ctx.shadowBlur = 20; ctx.shadowColor = '#00d4ff';
+    ctx.beginPath();
+    ctx.moveTo(-6, 10);
+    ctx.lineTo(0, 10 + flameH);
+    ctx.lineTo(6, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // 동체
+    const bodyGrad = ctx.createLinearGradient(-10, -18, 10, 18);
+    bodyGrad.addColorStop(0, '#e0e8f0');
+    bodyGrad.addColorStop(0.5, '#c0ccd8');
+    bodyGrad.addColorStop(1, '#8898aa');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 10, 22, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // 날개
+    ctx.fillStyle = '#00d4ff';
+    ctx.shadowBlur = 8; ctx.shadowColor = '#00d4ff';
+    ctx.beginPath();
+    ctx.moveTo(-10, 4);
+    ctx.lineTo(-26, 14);
+    ctx.lineTo(-26, 18);
+    ctx.lineTo(-10, 10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(10, 4);
+    ctx.lineTo(26, 14);
+    ctx.lineTo(26, 18);
+    ctx.lineTo(10, 10);
+    ctx.closePath();
+    ctx.fill();
+
+    // 꼬리날개
+    ctx.fillStyle = '#00d4ff';
+    ctx.beginPath();
+    ctx.moveTo(-5, 14);
+    ctx.lineTo(-14, 22);
+    ctx.lineTo(-5, 22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(5, 14);
+    ctx.lineTo(14, 22);
+    ctx.lineTo(5, 22);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // 조종석
+    const cockpitGrad = ctx.createRadialGradient(-3, -14, 1, 0, -10, 8);
+    cockpitGrad.addColorStop(0, 'rgba(200,240,255,0.9)');
+    cockpitGrad.addColorStop(1, 'rgba(0,120,200,0.5)');
+    ctx.fillStyle = cockpitGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, -10, 6, 9, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+
+    // 엔진 글로우 (아래)
+    const glow = ctx.createRadialGradient(plane.x, plane.y + 20, 0, plane.x, plane.y + 20, 30);
+    glow.addColorStop(0, 'rgba(0,212,255,0.25)');
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(plane.x - 30, plane.y - 10, 60, 60);
+  }
+}
+
+function gameOver() {
+  gameRunning = false;
+  cancelAnimationFrame(gameLoopId);
+  stopPose();
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('gameover-overlay').classList.add('visible');
+}
+
+function startGame() {
+  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+  initGame();
+  gameLoopId = requestAnimationFrame(gameUpdate);
+  startPoseCamera();
+}
+
+function restartGame() {
+  document.getElementById('gameover-overlay').classList.remove('visible');
+  initGame();
+  gameLoopId = requestAnimationFrame(gameUpdate);
+  startPoseCamera();
+}
+
+function goToMenu() {
+  document.getElementById('gameover-overlay').classList.remove('visible');
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('start-screen').style.display = 'flex';
+  document.getElementById('btn-load').disabled = false;
+}
+
+/* ======================================================
+   ⌨️ 키보드 + 포즈 이벤트 통합 제어
+====================================================== */
+document.addEventListener('keydown', e => {
+  const map = {
+    'ArrowUp':'up','KeyW':'up',
+    'ArrowDown':'down','KeyS':'down',
+    'ArrowLeft':'left','KeyA':'left',
+    'ArrowRight':'right','KeyD':'right'
+  };
+  if (map[e.code]) { e.preventDefault(); keyState[map[e.code]] = true; }
+});
+document.addEventListener('keyup', e => {
+  const map = {
+    'ArrowUp':'up','KeyW':'up',
+    'ArrowDown':'down','KeyS':'down',
+    'ArrowLeft':'left','KeyA':'left',
+    'ArrowRight':'right','KeyD':'right'
+  };
+  if (map[e.code]) keyState[map[e.code]] = false;
+});
+
+// 포즈 → 키 상태 변환 (연속 이동)
+let poseKeyTimer = null;
+document.addEventListener('pose:direction', e => {
+  const d = e.detail.direction;
+  // 모든 방향 초기화 후 해당 방향 설정
+  keyState['up'] = keyState['down'] = keyState['left'] = keyState['right'] = false;
+  keyState[d] = true;
+  // 0.3초 후 자동 해제
+  if (poseKeyTimer) clearTimeout(poseKeyTimer);
+  poseKeyTimer = setTimeout(() => {
+    keyState[d] = false;
+  }, 300);
+});
+</script>
+</body>
+</html>
