@@ -186,17 +186,34 @@ export default function Home() {
                 </p>
               </div>
               
-              <div className="mt-8">
+              <div className="grid grid-cols-1 gap-4 mt-8">
                 <Link 
                   href="https://activity-log-six.vercel.app/"
                   target="_blank"
-                  className="p-5 bg-emerald-50 hover:bg-emerald-100 rounded-xl border-2 border-[#2F3D4A] shadow-[2px_2px_0px_0px_#2F3D4A] group transition-all flex flex-col items-center justify-center text-center gap-2 w-full"
+                  className="p-5 bg-emerald-50 hover:bg-emerald-100 rounded-xl border-2 border-[#2F3D4A] shadow-[2px_2px_0px_0px_#2F3D4A] group transition-all flex items-center justify-between text-left gap-4 w-full"
                 >
-                  <span className="text-3xl">📝</span>
-                  <div className="flex flex-col items-center">
-                    <span className="text-base font-extrabold text-[#2F3D4A] group-hover:text-emerald-600 transition-colors">Activity Log</span>
-                    <span className="text-xs text-slate-500 font-bold mt-1">나의 실시간 학습 및 활동 기록 확인하기</span>
+                  <div className="flex items-center gap-4">
+                    <span className="text-3xl">📝</span>
+                    <div className="flex flex-col">
+                      <span className="text-base font-extrabold text-[#2F3D4A] group-hover:text-emerald-600 transition-colors">Activity Log</span>
+                      <span className="text-xs text-slate-500 font-bold mt-1">나의 실시간 학습 활동 확인</span>
+                    </div>
                   </div>
+                  <span className="text-xl">➡️</span>
+                </Link>
+
+                <Link 
+                  href="/ranking"
+                  className="p-5 bg-amber-50 hover:bg-amber-100 rounded-xl border-2 border-[#2F3D4A] shadow-[2px_2px_0px_0px_#2F3D4A] group transition-all flex items-center justify-between text-left gap-4 w-full"
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-3xl">🏆</span>
+                    <div className="flex flex-col">
+                      <span className="text-base font-extrabold text-[#2F3D4A] group-hover:text-amber-600 transition-colors">Hall of Fame</span>
+                      <span className="text-xs text-slate-500 font-bold mt-1">우리 반 과제 제출 랭킹 확인</span>
+                    </div>
+                  </div>
+                  <span className="text-xl">➡️</span>
                 </Link>
               </div>
             </div>
