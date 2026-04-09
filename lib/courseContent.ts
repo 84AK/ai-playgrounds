@@ -101,7 +101,17 @@ export async function saveCourseContent(track: CourseTrack, weekId: number, cont
   }
 
   try {
-    const res = await fetch(APPS_SCRIPT_URL, {
+    // [중요] 구글 앱스 스크립트 POST 요청 시 302 리다이렉트가 발생하면 
+    // 브라우저/서버 환경에 따라 POST Body가 소실되고 GET으로 변환될 수 있습니다.
+    // 이를 방지하기 위해 필수 파라미터(action, track, week)를 URL에도 함께 담아 보냅니다.
+    const gasUrl = new URL(APPS_SCRIPT_URL);
+    gasUrl.searchParams.set("action", "saveCourseContent");
+    gasUrl.searchParams.set("track", track);
+    gasUrl.searchParams.set("week", weekId.toString());
+
+    console.log(`📡 [CourseContent] Saving to GAS: ${gasUrl.toString().substring(0, 100)}...`);
+
+    const res = await fetch(gasUrl.toString(), {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({
@@ -110,6 +120,8 @@ export async function saveCourseContent(track: CourseTrack, weekId: number, cont
         week: weekId,
         content,
       }),
+      cache: 'no-store',
+      redirect: 'follow'
     });
 
     if (!res.ok) {

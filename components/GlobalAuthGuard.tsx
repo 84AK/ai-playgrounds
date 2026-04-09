@@ -61,6 +61,11 @@ export default function GlobalAuthGuard() {
                         clearLocalProfile();
                         setStep("login");
                     } else {
+                        // [Fix] 서버에서 불러온 최신 정보(학년/반 등)를 로컬에 강제 덮어씌움
+                        writeLocalProfile({
+                            ...profileFromStorage,
+                            ...verifiedProfile,
+                        });
                         setStep("authenticated");
                     }
                 } catch (networkError) {

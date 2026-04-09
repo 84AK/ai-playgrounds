@@ -18,6 +18,7 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
   useEffect(() => {
     // 환경 변수 기반 점검 모드 확인
     if (process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsMaintenance(true);
     }
   }, []);

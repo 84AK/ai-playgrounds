@@ -1,37 +1,56 @@
+"use client";
+
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AdminCourseEditorPanel from "@/components/AdminCourseEditorPanel";
-import { getCourseContent, type CourseTrack } from "@/lib/courseContent";
+import { type CourseTrack } from "@/lib/courseContent";
+import { useEffect, useRef } from "react";
 
 const tracks: CourseTrack[] = ["MBTI", "POSE"];
 const weeks = [1, 2, 3, 4];
 
-function normalizeTrack(value: string | string[] | undefined): CourseTrack {
+function normalizeTrack(value: string | null): CourseTrack {
     return value === "POSE" ? "POSE" : "MBTI";
 }
 
-function normalizeWeek(value: string | string[] | undefined): number {
-    const raw = Array.isArray(value) ? value[0] : value;
-    const parsed = Number(raw);
+function normalizeWeek(value: string | null): number {
+    const parsed = Number(value);
     return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4 ? parsed : 1;
 }
 
-export default async function AdminCoursePage(props: {
-    searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
-}) {
-    const cookieStore = await cookies();
-    if (!cookieStore.has("admin_session")) {
-        redirect("/admin");
-    }
+export default function AdminCoursePage() {
+    const searchParams = useSearchParams();
+    const track = normalizeTrack(searchParams.get("track"));
+    const weekId = normalizeWeek(searchParams.get("week"));
 
-    const searchParams = await (props.searchParams instanceof Promise
-        ? props.searchParams
-        : Promise.resolve(props.searchParams || {}));
+    const trackContainerRef = useRef<HTMLDivElement>(null);
+    const weekContainerRef = useRef<HTMLDivElement>(null);
 
-    const track = normalizeTrack(searchParams.track);
-    const weekId = normalizeWeek(searchParams.week);
-    const result = await getCourseContent(track, weekId);
+    // Horizontal wheel scroll logic
+    useEffect(() => {
+        const handleWheel = (e: WheelEvent, container: HTMLDivElement | null) => {
+            if (!container) return;
+            // Prevent default vertical scroll and apply horizontal scroll instead
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                container.scrollLeft += e.deltaY;
+            }
+        };
+
+        const tContainer = trackContainerRef.current;
+        const wContainer = weekContainerRef.current;
+
+        const handleTrackWheel = (e: WheelEvent) => handleWheel(e, tContainer);
+        const handleWeekWheel = (e: WheelEvent) => handleWheel(e, wContainer);
+
+        if (tContainer) tContainer.addEventListener("wheel", handleTrackWheel, { passive: false });
+        if (wContainer) wContainer.addEventListener("wheel", handleWeekWheel, { passive: false });
+
+        return () => {
+            if (tContainer) tContainer.removeEventListener("wheel", handleTrackWheel);
+            if (wContainer) wContainer.removeEventListener("wheel", handleWeekWheel);
+        };
+    }, []);
 
     return (
         <div className="min-h-screen bg-background px-6 py-10 text-foreground">
@@ -69,16 +88,20 @@ export default async function AdminCoursePage(props: {
                 </header>
 
                 <section className="rounded-3xl border border-border bg-secondary/5 p-6 space-y-5">
-                    <div className="space-y-3">
+                    <div className="space-y-3 relative group">
                         <p className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">Track</p>
-                        <div className="flex flex-wrap gap-3">
+                        <div 
+                            ref={trackContainerRef}
+                            className="flex overflow-x-auto flex-nowrap gap-3 scrollbar-hide select-none transition-all"
+                            style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+                        >
                             {tracks.map((item) => {
                                 const isActive = item === track;
                                 return (
                                     <Link
                                         key={item}
                                         href={`/admin/course?track=${item}&week=${weekId}`}
-                                        className={`rounded-2xl px-4 py-3 text-sm font-bold transition-colors ${
+                                        className={`shrink-0 rounded-2xl px-6 py-3 text-sm font-bold transition-colors ${
                                             isActive
                                                 ? "bg-primary text-primary-foreground"
                                                 : "border border-border text-muted-foreground hover:text-foreground"
@@ -91,16 +114,20 @@ export default async function AdminCoursePage(props: {
                         </div>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-3 relative group">
                         <p className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">Week</p>
-                        <div className="flex flex-wrap gap-3">
+                        <div 
+                            ref={weekContainerRef}
+                            className="flex overflow-x-auto flex-nowrap gap-3 scrollbar-hide select-none transition-all"
+                            style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+                        >
                             {weeks.map((item) => {
                                 const isActive = item === weekId;
                                 return (
                                     <Link
                                         key={item}
                                         href={`/admin/course?track=${track}&week=${item}`}
-                                        className={`rounded-2xl px-4 py-3 text-sm font-bold transition-colors ${
+                                        className={`shrink-0 rounded-2xl px-6 py-3 text-sm font-bold transition-colors ${
                                             isActive
                                                 ? "bg-primary text-primary-foreground"
                                                 : "border border-border text-muted-foreground hover:text-foreground"
@@ -118,8 +145,6 @@ export default async function AdminCoursePage(props: {
                     key={`${track}-${weekId}`}
                     track={track}
                     weekId={weekId}
-                    initialContent={result.content}
-                    source={result.source}
                 />
             </div>
         </div>

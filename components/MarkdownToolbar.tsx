@@ -54,6 +54,7 @@ export default function MarkdownToolbar({ content, onChange, textareaRef }: Mark
 
     return (
         <div className="flex overflow-x-auto whitespace-nowrap scrollbar-hide gap-2 mb-3 bg-secondary/20 p-2 rounded-xl border border-border">
+            {/* eslint-disable-next-line react-hooks/refs */}
             {tools.map((tool) => (
                 <button
                     key={tool.label}

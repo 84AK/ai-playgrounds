@@ -14,6 +14,7 @@ export default function PrivacyModal({ onOpenPolicy }: PrivacyModalProps) {
   useEffect(() => {
     const hideUntil = localStorage.getItem("hidePrivacyModalUntil");
     if (!hideUntil || new Date(hideUntil) < new Date()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsOpen(true);
     }
   }, []);

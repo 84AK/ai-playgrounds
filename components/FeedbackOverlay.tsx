@@ -13,6 +13,7 @@ export default function FeedbackOverlay() {
     useEffect(() => {
         // profile이 로드되지 않았거나 피드백이 없으면 표시 안 함
         if (!profile?.feedback || profile.feedback.trim() === "") {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setIsVisible(false);
             return;
         }
