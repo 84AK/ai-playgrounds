@@ -36,7 +36,11 @@ export function calculateClassRankings(students: StudentRanking[]): ClassRanking
     const classMap: Record<string, { totalPoints: number; studentCount: number }> = {};
     
     students.forEach(s => {
-        const className = `${s.grade}학년 ${s.classGroup}반`.trim() || "기타";
+        let className = "소속 미입력";
+        if (s.grade && s.classGroup && s.grade.toString().trim() !== "" && s.classGroup.toString().trim() !== "") {
+            className = `${s.grade}학년 ${s.classGroup}반`.trim();
+        }
+        
         if (!classMap[className]) {
             classMap[className] = { totalPoints: 0, studentCount: 0 };
         }

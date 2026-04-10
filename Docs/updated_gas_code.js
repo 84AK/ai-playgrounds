@@ -1,17 +1,18 @@
 /* ==============================================================
-   AI 연구소 통합 백엔드 API V5.3_Final_Merged (랭킹 + 콘텐츠수정 + 하이브리드정답)
+   AI 연구소 통합 백엔드 API V5.6_Final_Perfect_Merged
+   (로그인 + 하이브리드 정답 + 강의실 + 쇼케이스 라이브 프리뷰)
    ============================================================== */
 
 const SHEET_USERS = "Users"; 
 const SHEET_PROGRESS = "Progress";
 const SHEET_COURSE_CONTENTS = "CourseContents"; 
-const SHEET_REFERENCE_CODES = "ReferenceCodes"; // 정답 코드 시트 (없으면 자동생성)
+const SHEET_REFERENCE_CODES = "ReferenceCodes";
 const SHEET_MBTI_QUESTIONS = "Questions";
 const SHEET_MBTI_RESULTS = "Results";
 const SHEET_SHOWCASE_LINKS = "ShowcaseLinks"; 
-const SHEET_WEEKLY_FEEDBACKS = "WeeklyFeedbacks";
+const SHEET_WEEKLY_FEEDBACKS = "WeeklyFeeds";
 
-// 🚨 [필수 확인] 기존에 사용하시던 폴더 ID를 그대로 유지하세요!
+// 🚨 [필수 확인] 사용자님의 원래 폴더 ID입니다!
 const TARGET_FOLDER_ID = "1-Gx2MnaqHW2nT4XXpnPCRLrcLrFOsgo8";
 const REFERENCE_FOLDER_ID = "1YMY3pm-wjUAmt5Cqk_e1zREtdq9nan0t"; 
 
@@ -33,369 +34,337 @@ function doPost(e) {
   try {
     lock.waitLock(30000); 
 
-    // ✅ [리다이렉트 대응] URL 파라미터와 Body 데이터를 통합하여 action 추출
     let data = {};
-    let action = e.parameter.action; // URL 파라미터 우선 확인 (302 리다이렉트 대응)
+    let action = e.parameter.action;
     
     if (e.postData && e.postData.contents) {
       try {
         const bodyData = JSON.parse(e.postData.contents);
         data = bodyData;
-        if (bodyData.action) action = bodyData.action; // Body에 있으면 덮어씀
-      } catch (err) {
-        // JSON 파싱 실패 시 무시
-      }
+        if (bodyData.action) action = bodyData.action;
+      } catch (err) {}
     }
 
-    if (!action) return createJSONResponse({ error: "No action specified. Post content might be missing." });
-    
+    if (!action) return createJSONResponse({ error: "No action specified." });
     const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // 0. 유저 등록 및 수정 (기존 유지)
+    // 1. 유저 등록 및 수정
     if (action === 'registerUser' || action === 'updateUser') {
       const { user_id, school, password, avatar, grade, classGroup } = data;
-      let sheet = ss.getSheetByName(SHEET_USERS) || ss.getSheetByName(SHEET_USERS.toLowerCase()) || ss.insertSheet(SHEET_USERS);
+      let sheet = ss.getSheetByName(SHEET_USERS) || ss.insertSheet(SHEET_USERS);
       if (sheet.getLastRow() === 0) sheet.appendRow(["User_ID", "School", "Password", "Avatar", "Last_Updated", "Grade", "Class", "Feedback"]);
-
       const rows = sheet.getDataRange().getDisplayValues();
       let foundRow = -1;
-      for (let i = 1; i < rows.length; i++) { 
-        if (rows[i][0].toString().trim() === user_id.toString().trim()) { foundRow = i + 1; break; } 
-      }
-
+      for (let i = 1; i < rows.length; i++) { if (rows[i][0].toString().trim() === user_id.toString().trim()) { foundRow = i + 1; break; } }
       if (action === 'registerUser') {
         if (foundRow !== -1) return createJSONResponse({ error: "User already exists" });
         sheet.appendRow([user_id, school, password, avatar, getKoreanTime(), grade || "", classGroup || "", ""]);
-        return createJSONResponse({ status: "success" });
       } else {
         if (foundRow === -1) return createJSONResponse({ error: "User not found" });
         sheet.getRange(foundRow, 1, 1, 7).setValues([[user_id, school, password, avatar, getKoreanTime(), grade || rows[foundRow-1][5], classGroup || rows[foundRow-1][6]]]);
-        return createJSONResponse({ status: "success" });
       }
+      return createJSONResponse({ status: "success" });
     }
 
-    // 1. 과제 업로드 (기존 유지)
+    // 2. 과제 업로드
     if (action === 'uploadHomework') {
       const { user_id, course_type, week, grade_class, file_name, file_base64, mime_type } = data;
       try {
         const rootFolder = DriveApp.getFolderById(TARGET_FOLDER_ID);
         const weekNum = Number(week);
-        const weekFolderName = (course_type && course_type.toUpperCase() === 'POSE')
-          ? `POSE_Week${weekNum}`.normalize("NFC")
-          : (week.toString() + "주차").normalize("NFC");
-        const weekFolder = getOrCreateSubFolder(rootFolder, weekFolderName);
-        const classFolderName = (grade_class || "기타").toString().normalize("NFC");
-        const targetFolder = getOrCreateSubFolder(weekFolder, classFolderName);
+        const weekFolderName = (course_type && course_type.toUpperCase() === 'POSE') ? `POSE_Week${weekNum}` : (week.toString() + "주차");
+        const weekFolder = getOrCreateSubFolder(rootFolder, weekFolderName.normalize("NFC"));
         
-        const files = targetFolder.getFilesByName(file_name);
-        let file;
-        if (files.hasNext()) {
-          file = files.next();
-          file.setContent(Utilities.newBlob(Utilities.base64Decode(file_base64), mime_type || MimeType.PLAIN_TEXT).getBytes());
-        } else {
-          file = targetFolder.createFile(Utilities.newBlob(Utilities.base64Decode(file_base64), mime_type || MimeType.PLAIN_TEXT, file_name));
+        // [수정] 방안 B: 해당 주차 폴더 전체에서 이 학생의 기존 파일 검색 및 삭제
+        // 파일명에 닉네임이 포함된 모든 파일을 찾아 휴지통으로 보냅니다.
+        const searchQuery = "title contains '" + weekFolderName + "' and title contains '" + user_id + "'";
+        const oldFiles = weekFolder.searchFiles(searchQuery);
+        while (oldFiles.hasNext()) {
+          const oldFile = oldFiles.next();
+          try { oldFile.setTrashed(true); } catch(e) { console.error("Error trashing file: " + e); }
         }
+
+        const classFolder = getOrCreateSubFolder(weekFolder, (grade_class || "기타").toString().normalize("NFC"));
         
+        // 새 파일 생성
+        const file = classFolder.createFile(Utilities.newBlob(Utilities.base64Decode(file_base64), mime_type || MimeType.PLAIN_TEXT, file_name));
         file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        updateUserProgress(user_id, course_type, Number(week), true, file.getDownloadUrl());
         
-        return createJSONResponse({ status: "success", fileUrl: file.getDownloadUrl(), path: weekFolderName + " > " + classFolderName });
-      } catch (err) { 
-        return createJSONResponse({ status: "error", message: err.toString() }); 
-      }
+        updateUserProgress(user_id, course_type, weekNum, true, file.getDownloadUrl());
+        return createJSONResponse({ status: "success", fileUrl: file.getDownloadUrl() });
+      } catch (err) { return createJSONResponse({ status: "error", message: err.toString() }); }
     }
 
-    // 2. 피드백 업데이트 (기존 유지)
-    if (action === 'updateFeedback') {
-      const { user_id, week, feedback } = data;
-      if (week) {
-        const weekNum = week.toString();
-        let fSheet = ss.getSheetByName(SHEET_WEEKLY_FEEDBACKS) || ss.insertSheet(SHEET_WEEKLY_FEEDBACKS);
-        if (fSheet.getLastRow() === 0) fSheet.appendRow(["User_ID", "Week", "Feedback", "Updated_At"]);
-        const rows = fSheet.getDataRange().getValues();
-        let foundRow = -1;
-        for (let i = 1; i < rows.length; i++) {
-          if (rows[i][0].toString().trim() === user_id.toString().trim() && rows[i][1].toString().trim() === weekNum) {
-            foundRow = i + 1; break;
-          }
-        }
-        if (foundRow !== -1) fSheet.getRange(foundRow, 3, 1, 2).setValues([[feedback, getKoreanTime()]]);
-        else fSheet.appendRow([user_id, weekNum, feedback, getKoreanTime()]);
-        return createJSONResponse({ status: "success" });
-      } else {
-        let uSheet = ss.getSheetByName(SHEET_USERS) || ss.getSheetByName(SHEET_USERS.toLowerCase());
-        const uRows = uSheet.getDataRange().getDisplayValues();
-        for (let i = 1; i < uRows.length; i++) {
-          if (uRows[i][0].toString().trim() === user_id.toString().trim()) {
-            uSheet.getRange(i + 1, 8).setValue(feedback);
-            return createJSONResponse({ status: "success" });
-          }
-        }
-        return createJSONResponse({ error: "User not found" });
-      }
-    }
-
-    // ✅ [추가] 3. 강의 콘텐츠 저장 (보안 및 유연한 시트 검색 적용)
+    // 3. 강의 콘텐츠 저장
     if (action === 'saveCourseContent') {
-      const track = (data.track || e.parameter.track || "").toString().trim().toUpperCase();
-      const week = Number(data.week || e.parameter.week);
-      const content = data.content || "";
-      
-      let cSheet = getFlexibleSheet(ss, SHEET_COURSE_CONTENTS, "course", "content");
+      const { track, week, content } = data;
+      let cSheet = ss.getSheetByName(SHEET_COURSE_CONTENTS) || ss.insertSheet(SHEET_COURSE_CONTENTS);
       const rows = cSheet.getDataRange().getValues();
       let foundRow = -1;
-
-      for (let i = 1; i < rows.length; i++) {
-        const rowTrack = (rows[i][0] || "").toString().trim().toUpperCase();
-        const rowWeek = Number(rows[i][1]);
-        if (rowTrack === track && rowWeek === week) {
-          foundRow = i + 1;
-          break;
-        }
-      }
-
-      if (foundRow !== -1) {
-        cSheet.getRange(foundRow, 3).setValue(content);
-        cSheet.getRange(foundRow, 4).setValue(getKoreanTime()); 
-      } else {
-        cSheet.appendRow([track, week, content, getKoreanTime()]);
-      }
-      return createJSONResponse({ status: "success", savedTo: cSheet.getName() });
+      const t = track.toString().trim().toUpperCase();
+      const w = Number(week);
+      for (let i = 1; i < rows.length; i++) { if ((rows[i][0]||"").toString().toUpperCase() === t && Number(rows[i][1]) === w) { foundRow = i+1; break; } }
+      if (foundRow !== -1) cSheet.getRange(foundRow, 3, 1, 2).setValues([[content, getKoreanTime()]]);
+      else cSheet.appendRow([t, w, content, getKoreanTime()]);
+      return createJSONResponse({ status: "success" });
     }
 
-    return createJSONResponse({ error: "Invalid Action in doPost: " + action });
-  } finally {
-    lock.releaseLock();
-  }
+    // 4. 피드백 업데이트
+    if (action === 'updateFeedback') {
+      const { user_id, feedback } = data;
+      const uSheet = ss.getSheetByName(SHEET_USERS);
+      const rows = uSheet.getDataRange().getDisplayValues();
+      for (let i = 1; i < rows.length; i++) { if (rows[i][0].toString().trim() === user_id.toString().trim()) { uSheet.getRange(i+1, 8).setValue(feedback); return createJSONResponse({status:"success"}); } }
+      return createJSONResponse({error:"User not found"});
+    }
+
+    // 5. 쇼케이스 등록/수정/삭제
+    if (['registerShowcaseLink','editShowcaseLink','deleteShowcaseLink','toggleShowcaseStatus'].includes(action)) {
+      let sheet = ss.getSheetByName(SHEET_SHOWCASE_LINKS) || ss.insertSheet(SHEET_SHOWCASE_LINKS);
+      const { timestamp, author, title, description, url, password, type, status } = data;
+      
+      // 헤더 설정 (Status 열 추가됨)
+      if (sheet.getLastRow() === 0) {
+        sheet.appendRow(["Timestamp", "Author", "Title", "Description", "URL", "Password", "Type", "Status"]);
+      }
+
+      if (action === 'registerShowcaseLink') { 
+        sheet.appendRow([getKoreanTime(), author, title, description, url, password, type, "visible"]); 
+        return createJSONResponse({status:"success"}); 
+      }
+
+      const rows = sheet.getDataRange().getValues();
+      const displayRows = sheet.getDataRange().getDisplayValues(); // 💡 더 정확한 비교를 위해 DisplayValues 사용
+      let foundRow = -1;
+      
+      for (let i = 1; i < displayRows.length; i++) { 
+        if (displayRows[i][0].toString() === timestamp.toString()) { 
+          foundRow = i+1; break; 
+        } 
+      }
+
+      if (foundRow === -1) return createJSONResponse({error:"Not found"});
+
+      // 관리자 강제 상태 변경인 경우 비밀번호 체크 생략 가능 (필요시 추가)
+      if (action === 'toggleShowcaseStatus') {
+        sheet.getRange(foundRow, 8).setValue(status);
+        return createJSONResponse({status:"success"});
+      }
+
+      // 수정/삭제 시 비밀번호 확인
+      if (rows[foundRow-1][5].toString() !== password.toString()) return createJSONResponse({error:"Invalid password"});
+      
+      if (action === 'editShowcaseLink') { 
+        sheet.getRange(foundRow, 2, 1, 6).setValues([[author, title, description, url, password, type]]); 
+      }
+      else { sheet.deleteRow(foundRow); }
+      
+      return createJSONResponse({status:"success"});
+    }
+
+    return createJSONResponse({ error: "Invalid POST Action" });
+  } finally { lock.releaseLock(); }
 }
 
 /* =========================================================
    [GET] 데이터 불러오기
    ========================================================= */
 function doGet(e) {
-  const params = e.parameter;
-  const action = params.action;
+  const action = e.parameter.action;
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   try {
-    // 0. 유저 정보 조회 (기존 유지)
+    // 1. 유저 정보 (로그인용)
     if (action === 'getUser') {
-      const uSheet = ss.getSheetByName(SHEET_USERS) || ss.getSheetByName(SHEET_USERS.toLowerCase());
-      if (!uSheet) return createJSONResponse({ status: "error", message: "Sheet not found" });
+      const uSheet = ss.getSheetByName(SHEET_USERS);
       const rows = uSheet.getDataRange().getDisplayValues();
       for (let i = 1; i < rows.length; i++) {
-        if (rows[i][0].toString().trim() === params.user_id.toString().trim()) {
-          return createJSONResponse({ 
-            status: "success", 
-            data: { name: rows[i][0], school: rows[i][1], password: rows[i][2], avatar: rows[i][3], grade: rows[i][5], classGroup: rows[i][6], feedback: rows[i][7] || "" } 
-          });
+        if (rows[i][0].toString().trim() === e.parameter.user_id.toString().trim()) {
+          return createJSONResponse({ status: "success", data: { name: rows[i][0], school: rows[i][1], password: rows[i][2], avatar: rows[i][3], grade: rows[i][5], classGroup: rows[i][6], feedback: rows[i][7]||"" } });
         }
       }
       return createJSONResponse({ status: "error", message: "User not found" });
     }
 
-    // 1. 전체 학생 및 진도 랭킹 데이터 조회 (기존 유지)
+    // 2. 랭킹 데이터
     if (action === 'getRankingData') {
-      const uSheet = ss.getSheetByName(SHEET_USERS) || ss.getSheetByName(SHEET_USERS.toLowerCase());
+      const uSheet = ss.getSheetByName(SHEET_USERS);
       const pSheet = ss.getSheetByName(SHEET_PROGRESS);
-      if (!uSheet) return createJSONResponse({ error: "User sheet not found" });
-      const uRows = uSheet.getDataRange().getDisplayValues();
+      const uRows = uSheet.getDataRange().getValues();
       const pRows = pSheet ? pSheet.getDataRange().getValues() : [];
-      const progressMap = {};
-      for (let i = 1; i < pRows.length; i++) {
-        const uid = pRows[i][0].toString().trim();
-        if (uid) {
-          progressMap[uid] = {
-            mbti: [pRows[i][1], pRows[i][2], pRows[i][3], pRows[i][4]],
-            pose: [pRows[i][5], pRows[i][6], pRows[i][7], pRows[i][8]]
-          };
-        }
-      }
-      const rankingList = [];
-      for (let i = 1; i < uRows.length; i++) {
-        const uid = uRows[i][0].toString().trim();
-        if (!uid) continue;
-        const p = progressMap[uid] || { mbti: [false, false, false, false], pose: [false, false, false, false] };
-        let totalPoints = 0;
-        const allProgress = [...p.mbti, ...p.pose];
-        allProgress.forEach(status => {
-          if (status === true || status === "TRUE") totalPoints += 10;
-        });
-        rankingList.push({
-          name: uid, avatar: uRows[i][3] || "", grade: uRows[i][5] || "", classGroup: uRows[i][6] || "", points: totalPoints, mbtiProgress: p.mbti, poseProgress: p.pose
-        });
-      }
-      rankingList.sort((a, b) => b.points - a.points);
-      return createJSONResponse({ status: "success", data: rankingList });
+      const pMap = {};
+      pRows.slice(1).forEach(r => { pMap[r[0]] = { mbti: [r[1],r[2],r[3],r[4]], pose: [r[5],r[6],r[7],r[8]] }; });
+      const list = uRows.slice(1).map(r => {
+        const uid = r[0]; const p = pMap[uid] || { mbti: [false,false,false,false], pose: [false,false,false,false] };
+        let pts = 0; [...p.mbti, ...p.pose].forEach(s => { if (s === true || s === "TRUE") pts += 10; });
+        return { name: uid, avatar: r[3], grade: r[5], classGroup: r[6], points: pts, mbtiProgress: p.mbti, poseProgress: p.pose };
+      });
+      return createJSONResponse({ status: "success", data: list.sort((a,b)=>b.points - a.points) });
     }
 
-    // ✅ [추가] 2. 강의 콘텐츠 조회
-    if (action === 'getCourseContent') {
-      const track = (params.track || "").toString().trim().toUpperCase();
-      const week = Number(params.week);
-      
-      let cSheet = getFlexibleSheet(ss, SHEET_COURSE_CONTENTS, "course", "content");
-      const rows = cSheet.getDataRange().getValues();
-      
-      for (let i = 1; i < rows.length; i++) {
-        const rowTrack = (rows[i][0] || "").toString().trim().toUpperCase();
-        const rowWeek = Number(rows[i][1]);
-        if (rowTrack === track && rowWeek === week) {
-          return createJSONResponse({ status: "success", content: rows[i][2], source: "sheet", sheetName: cSheet.getName() });
-        }
-      }
-      return createJSONResponse({ status: "success", content: "", message: "No match found" });
+    // 3. 프리뷰용 드라이브 파일 Base64
+    if (action === 'getDriveFileBase64') {
+      try {
+        const file = DriveApp.getFileById(e.parameter.fileId); const blob = file.getBlob();
+        return createJSONResponse({ status: "success", data: Utilities.base64Encode(blob.getBytes()), mimeType: blob.getContentType(), name: file.getName() });
+      } catch (err) { return createJSONResponse({ status: "error", message: "Error: " + err.toString() }); }
     }
 
-    // ✅ [추가] 3. 정적 정답 코드 조회 (하이브리드 방식)
-    if (action === 'getReferenceCode') {
-      const track = (params.course_type || params.track || "MBTI").toString().trim().toUpperCase();
-      const week = Number(params.week);
-      
-      // 1순위: 시드 시트에서 찾기
-      let rSheet = ss.getSheetByName(SHEET_REFERENCE_CODES) || ss.getSheetByName("ReferenceCodes");
-      if (rSheet) {
-        const rows = rSheet.getDataRange().getValues();
-        for (let i = 1; i < rows.length; i++) {
-          const rowTrack = (rows[i][0] || "").toString().trim().toUpperCase();
-          const rowWeek = Number(rows[i][1]);
-          if (rowTrack === track && rowWeek === week) {
-            return createJSONResponse({ status: "success", content: rows[i][2], source: "sheet" });
-          }
-        }
-      }
-      
-      // 2순위: 구글 드라이브 폴더에서 찾기
-      const driveContent = getReferenceCodeFromDrive(week, track);
-      if (driveContent) {
-        return createJSONResponse({ status: "success", content: driveContent, source: "drive" });
-      }
-
-      return createJSONResponse({ status: "success", content: "", message: "Reference not found" });
-    }
-
-    // 기존 액션들 유지
+    // 4. 유저 진도 조회
     if (action === 'getProgress') {
-      const { user_id } = params;
       const pSheet = ss.getSheetByName(SHEET_PROGRESS);
-      let userData = { mbti_week1: false, mbti_week2: false, mbti_week3: false, mbti_week4: false, pose_week1: false, pose_week2: false, pose_week3: false, pose_week4: false };
+      let data = { mbti_week1:false, mbti_week2:false, mbti_week3:false, mbti_week4:false, pose_week1:false, pose_week2:false, pose_week3:false, pose_week4:false };
       if (pSheet) {
         const rows = pSheet.getDataRange().getValues();
         for (let i = 1; i < rows.length; i++) {
-          if (rows[i][0] === user_id) {
-            userData = {
+          if (rows[i][0] === e.parameter.user_id) {
+            data = {
               mbti_week1: !!rows[i][1], mbti_week2: !!rows[i][2], mbti_week3: !!rows[i][3], mbti_week4: !!rows[i][4],
-              pose_week1: !!rows[i][5], pose_week2: !!rows[i][6], pose_week3: !!rows[i][7], pose_week4: !!rows[i][8]
-            };
-            break;
+              pose_week1: !!rows[i][5], pose_week2: !!rows[i][6], pose_week3: !!rows[i][7], pose_week4: !!rows[i][8],
+              mbti_week1_url: rows[i][9], mbti_week2_url: rows[i][10], mbti_week3_url: rows[i][11], mbti_week4_url: rows[i][12],
+              pose_week1_url: rows[i][13], pose_week2_url: rows[i][14], pose_week3_url: rows[i][15], pose_week4_url: rows[i][16]
+            }; break;
           }
         }
       }
-      return createJSONResponse({ status: "success", data: userData });
+      return createJSONResponse({ status: "success", data: data });
     }
 
-    if (action === 'getStudentList') {
-        const uSheet = ss.getSheetByName(SHEET_USERS) || ss.getSheetByName(SHEET_USERS.toLowerCase());
-        if (!uSheet) return createJSONResponse({ status: "error" });
-        const rows = uSheet.getDataRange().getDisplayValues();
-        let list = [];
-        for (let i = 1; i < rows.length; i++) {
-          list.push({ 
-            name: rows[i][0], school: rows[i][1], grade: rows[i][5] || "", class: rows[i][6] || "", feedback: rows[i][7] || "" 
+    // 5. 강의 콘텐츠 조회
+    if (action === 'getCourseContent') {
+      const { track, week } = e.parameter;
+      const cSheet = ss.getSheetByName(SHEET_COURSE_CONTENTS);
+      if (!cSheet) return createJSONResponse({ status: "success", content: "" });
+      const rows = cSheet.getDataRange().getValues();
+      const t = track.toString().toUpperCase(); const w = Number(week);
+      for (let i = 1; i < rows.length; i++) { if ((rows[i][0]||"").toString().toUpperCase() === t && Number(rows[i][1]) === w) return createJSONResponse({ status: "success", content: rows[i][2] }); }
+      return createJSONResponse({ status: "success", content: "" });
+    }
+
+    // [추가] 5.1 과제 제출 상세 상태 확인 (UploadHomework.tsx용)
+    if (action === 'checkUserStatus') {
+      const { user_id, week, course_type } = e.parameter;
+      const pSheet = ss.getSheetByName(SHEET_PROGRESS);
+      const uSheet = ss.getSheetByName(SHEET_USERS);
+      const isPose = (course_type && course_type.toUpperCase() === 'POSE');
+      let res = { submissionStatus: 'not_found', fileName: '', feedback: '' };
+      
+      if (pSheet) {
+          const pRows = pSheet.getDataRange().getValues();
+          const weekIdx = Number(week);
+          const colUrl = isPose ? 12 + weekIdx : 8 + weekIdx; // MBTI: Week1=index 9 (J), POSE: Week1=index 13 (N) 
+          // 💡 weekIdx가 1부터 시작하므로 Index 보정 (Week1 -> Index 9이면, 8 + 1)
+          for (let i = 1; i < pRows.length; i++) {
+              if (pRows[i][0] === user_id && pRows[i][colUrl]) {
+                  res.submissionStatus = 'verified';
+                  try {
+                    const fileId = pRows[i][colUrl].match(/[-\w]{25,}/);
+                    if (fileId) res.fileName = DriveApp.getFileById(fileId[0]).getName();
+                  } catch(e) {}
+                  break;
+              }
+          }
+      }
+      if (uSheet) {
+          const uRows = uSheet.getDataRange().getDisplayValues();
+          for (let i = 1; i < uRows.length; i++) {
+              if (uRows[i][0] === user_id) { res.feedback = uRows[i][7] || ""; break; }
+          }
+      }
+      return createJSONResponse({ status: "success", data: res });
+    }
+
+    // 6. 하이브리드 정답 코드 조회 (시트 + 드라이브)
+    if (action === 'getReferenceCode') {
+      const track = (e.parameter.course_type || e.parameter.track || "MBTI").toUpperCase();
+      const week = Number(e.parameter.week);
+      let rSheet = ss.getSheetByName(SHEET_REFERENCE_CODES);
+      if (rSheet) {
+        const rows = rSheet.getDataRange().getValues();
+        for (let i = 1; i < rows.length; i++) { if ((rows[i][0]||"").toString().toUpperCase() === track && Number(rows[i][1]) === week) return createJSONResponse({ status:"success", content:rows[i][2], source:"sheet" }); }
+      }
+      const driveCode = getReferenceCodeFromDrive(week, track);
+      if (driveCode) return createJSONResponse({ status:"success", content:driveCode, source:"drive" });
+      return createJSONResponse({ status: "success", content: "" });
+    }
+
+    // 7. 쇼케이스 전체 데이터
+    if (action === 'getAllMbtiData') {
+      const showcaseSheet = ss.getSheetByName(SHEET_SHOWCASE_LINKS);
+      const userSheet = ss.getSheetByName(SHEET_USERS);
+      let list = []; let uMap = {};
+      
+      if (showcaseSheet) {
+        const fullRows = showcaseSheet.getDataRange().getValues();
+        const displayRows = showcaseSheet.getDataRange().getDisplayValues(); // 💡 웹과 시트 간 Timestamp 일치를 위해 사용
+        
+        for (let i = 1; i < fullRows.length; i++) {
+          list.push({
+            timestamp: displayRows[i][0], // 문자열 형식으로 가져옴
+            author: fullRows[i][1],
+            title: fullRows[i][2],
+            description: fullRows[i][3],
+            url: fullRows[i][4],
+            password: fullRows[i][5],
+            type: fullRows[i][6],
+            status: fullRows[i][7] || "visible" // 기본값 visible
           });
         }
-        return createJSONResponse({ status: "success", data: list });
+      }
+      
+      if (userSheet) {
+        userSheet.getDataRange().getValues().slice(1).forEach(r => { 
+          uMap[r[0]] = { avatar:r[3], school:r[1], grade:r[5], classGroup:r[6] }; 
+        });
+      }
+      return createJSONResponse({ status: "success", data: { showcase_links: list, users: uMap } });
     }
 
-    return createJSONResponse({ error: "Invalid Action in doGet: " + action });
+    // 8. 학생 관리 명단 조회
+    if (action === 'getStudentList') {
+        const rows = ss.getSheetByName(SHEET_USERS).getDataRange().getDisplayValues();
+        return createJSONResponse({ status: "success", data: rows.slice(1).map(r => ({ name: r[0], school: r[1], grade: r[5], class: r[6], feedback: r[7] })) });
+    }
+
+    return createJSONResponse({ error: "Invalid GET Action" });
   } catch (err) { return createJSONResponse({ error: err.toString() }); }
 }
 
-
 /* =========================================================
-   [HELPERS] 유틸리티 함수들
+   [HELPERS]
    ========================================================= */
-
-// 📂 폴더 생성 및 반환 함수
-function getOrCreateSubFolder(parentFolder, folderName) {
-  const folderNameNFC = folderName.normalize("NFC");
-  const subFolders = parentFolder.getFoldersByName(folderNameNFC);
-  if (subFolders.hasNext()) return subFolders.next();
-  return parentFolder.createFolder(folderNameNFC);
+function getOrCreateSubFolder(parent, name) {
+  const iter = parent.getFoldersByName(name);
+  return iter.hasNext() ? iter.next() : parent.createFolder(name);
 }
 
-// 📂 하위 폴더 포함 모든 파일을 찾는 재귀 함수
-function findFileBySubfolders(folder, userId, week, isReference = false, courseType = "MBTI") {
-  const files = folder.getFiles();
-  const weekNum = week.toString().normalize("NFC");
-  let weekTarget = (weekNum + "주차").normalize("NFC");
-  if (courseType && courseType.toUpperCase() === 'POSE') {
-    weekTarget = (`POSE_Week${weekNum}`).normalize("NFC");
-  }
-  const userIdClean = userId.toString().normalize("NFC");
-  
-  while (files.hasNext()) {
-    const file = files.next();
-    const name = file.getName().normalize("NFC");
-    const cleanName = name.replace(/\s/g, ""); 
-    if (isReference) {
-      const keywords = ["정답", "해설", "모범", "reference", "ref"];
-      const hasKeyword = keywords.some(k => name.toLowerCase().includes(k.normalize("NFC")));
-      if (cleanName.includes(weekTarget) && hasKeyword) return file;
-    } else {
-      if (cleanName.includes(weekTarget) && name.includes(userIdClean)) return file;
-    }
-  }
-  const subFolders = folder.getFolders();
-  while (subFolders.hasNext()) {
-    const found = findFileBySubfolders(subFolders.next(), userId, week, isReference, courseType);
-    if (found) return found;
-  }
-  return null;
-}
-
-// 📂 구글 드라이브에서 정답 코드 가져오기 전용
-function getReferenceCodeFromDrive(week, courseType) {
-  try {
-    const folder = DriveApp.getFolderById(REFERENCE_FOLDER_ID);
-    const file = findFileBySubfolders(folder, "", week, true, courseType);
-    if (file) {
-      const mime = file.getMimeType();
-      if (mime === "application/vnd.google-apps.document") {
-        return DocumentApp.openById(file.getId()).getBody().getText();
-      } 
-      return file.getBlob().getDataAsString();
-    }
-  } catch (e) { console.error(e); }
-  return null;
-}
-
-// 📂 시트 이름을 유연하게 찾아주는 함수
-function getFlexibleSheet(ss, defaultName, term1, term2) {
-  let sheet = ss.getSheetByName(defaultName);
-  if (sheet) return sheet;
-  const sheets = ss.getSheets();
-  for (let i = 0; i < sheets.length; i++) {
-    const sName = sheets[i].getName().toLowerCase();
-    if (sName.includes(term1) && sName.includes(term2)) return sheets[i];
-  }
-  return ss.insertSheet(defaultName);
-}
-
-// 주차별 진행도 업데이트
-function updateUserProgress(userId, courseType, weekNum, status, fileUrl = "") {
+function updateUserProgress(uid, type, week, status, url) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(SHEET_PROGRESS) || ss.insertSheet(SHEET_PROGRESS);
   const rows = sheet.getDataRange().getValues();
-  let foundRow = -1;
-  for (let i = 1; i < rows.length; i++) { if (rows[i][0] === userId) { foundRow = i + 1; break; } }
-  let colIndex = courseType.toUpperCase() === 'MBTI' ? 1 + weekNum : 5 + weekNum;
-  let urlColIndex = courseType.toUpperCase() === 'MBTI' ? 9 + weekNum : 13 + weekNum;
-  if (foundRow !== -1) {
-    sheet.getRange(foundRow, colIndex).setValue(status);
-    sheet.getRange(foundRow, urlColIndex).setValue(fileUrl);
-  } else {
-    let newRow = Array(17).fill(""); newRow[0] = userId; newRow[colIndex-1] = status; newRow[urlColIndex-1] = fileUrl;
-    sheet.appendRow(newRow);
+  let found = -1;
+  for (let i = 1; i < rows.length; i++) { if (rows[i][0] === uid) { found = i + 1; break; } }
+  let col = type.toUpperCase() === 'MBTI' ? 1 + week : 5 + week;
+  let urlCol = type.toUpperCase() === 'MBTI' ? 9 + week : 13 + week;
+  if (found !== -1) { sheet.getRange(found, col).setValue(status); sheet.getRange(found, urlCol).setValue(url); }
+  else { let nr = Array(17).fill(""); nr[0] = uid; nr[col-1] = status; nr[urlCol-1] = url; sheet.appendRow(nr); }
+}
+
+function getReferenceCodeFromDrive(week, type) {
+  try {
+    const folder = DriveApp.getFolderById(REFERENCE_FOLDER_ID);
+    const file = findFileRecursive(folder, week, type);
+    if (file) return file.getMimeType().includes("document") ? DocumentApp.openById(file.getId()).getBody().getText() : file.getBlob().getDataAsString();
+  } catch (e) {} return null;
+}
+
+function findFileRecursive(folder, week, type) {
+  const target = (type === 'POSE' ? `POSE_Week${week}` : `${week}주차`).normalize("NFC");
+  const files = folder.getFiles();
+  while (files.hasNext()) {
+    const f = files.next(); const n = f.getName().normalize("NFC");
+    if (n.includes(target) && (n.includes("정답") || n.includes("Reference"))) return f;
   }
+  const subs = folder.getFolders();
+  while (subs.hasNext()) { const found = findFileRecursive(subs.next(), week, type); if (found) return found; }
+  return null;
 }

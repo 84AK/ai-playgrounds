@@ -40,6 +40,8 @@ export default function Showcase() {
     });
     const [authInput, setAuthInput] = useState({ author: "", password: "" });
     const [deletePassword, setDeletePassword] = useState("");
+    const [userProgress, setUserProgress] = useState<any>(null);
+    const [isLoadingUserProgress, setIsLoadingUserProgress] = useState(false);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -179,7 +181,11 @@ export default function Showcase() {
         async function loadData() {
             try {
                 // 사용자님이 제공해주신 구글 시트 API URL에 getAllMbtiData 액션 추가 (쇼케이스 데이터 포함)
-                const result = await getAppsScriptJson<any>(new URLSearchParams({ action: "getAllMbtiData" }));
+                // [NEW] 캐시 방지를 위해 랜덤 파라미터(v) 추가
+                const result = await getAppsScriptJson<any>(new URLSearchParams({ 
+                    action: "getAllMbtiData",
+                    _t: Date.now().toString() 
+                }));
 
                 // 새로운 백엔드 응답 구조(mbti_questions, showcase_links) 대응
                 let rawProjects: any[] = [];
@@ -224,20 +230,21 @@ export default function Showcase() {
                             displayType: "WEB",
                             link: item.Url || item.url || "#",
                             password: String(item.Password || item.password || "") // 권한 확인용
-                        }));
+                        })).filter((p: any) => p.source !== "MBTI_BUILDER"); // [NEW] 0주차 MBTI 빌더 데이터 제외
                     }
                 }
 
                 // 구글 시트 데이터를 정규 앱 카드 형식으로 병합
-                // customProjects가 최우선순위를 가지도록 앞에 둡니다.
-                const combinedData = [...customProjects, ...rawProjects];
+                // 이제 rawProjects(0주차 MBTI 빌더 데이터)는 포함하지 않습니다.
+                const combinedData = [...customProjects];
 
-                // 중복되는 링크(이미 쇼케이스에 등록된 MBTI 테스트) 제거
+                // [NEW] 중복 데이터 제거 (URL 기준이 아닌 고유 타임스탬프 기준으로 변경하여 삭제 반영 확인)
                 const uniqueData = [];
-                const seenLinks = new Set();
+                const seenTimestamps = new Set();
                 for (const item of combinedData) {
-                    if (!seenLinks.has(item.link)) {
-                        seenLinks.add(item.link);
+                    const tKey = String(item.timestamp || item.link);
+                    if (!seenTimestamps.has(tKey)) {
+                        seenTimestamps.add(tKey);
                         uniqueData.push(item);
                     }
                 }
@@ -342,6 +349,50 @@ export default function Showcase() {
     const schools = Array.from(new Set(projects.map(p => p.school).filter(s => s && s !== "undefined"))).sort() as string[];
     const grades = Array.from(new Set(projects.map(p => p.grade ? String(p.grade) : "").filter(g => g !== ""))).sort();
     const classes = Array.from(new Set(projects.map(p => p.classGroup ? String(p.classGroup) : "").filter(c => c !== ""))).sort();
+
+    // [NEW] 유저 진도 데이터 불러오기 로직
+    const fetchMyProgress = async () => {
+        if (!profile?.name || userProgress) return;
+        setIsLoadingUserProgress(true);
+        try {
+            const res = await getAppsScriptJson<any>(new URLSearchParams({
+                action: "getProgress",
+                user_id: profile.name
+            }));
+            if (res.status === "success") {
+                setUserProgress(res.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch progress for showcase", err);
+        } finally {
+            setIsLoadingUserProgress(false);
+        }
+    };
+
+    const handleOpenSubmitModal = () => {
+        fetchMyProgress();
+        setShowModal(true);
+    };
+
+    // [NEW] 과제 선택 시 폼 채우기
+    const handleHomeworkSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const val = e.target.value;
+        if (!val || !userProgress) return;
+
+        const [track, week] = val.split("_"); // e.g. "mbti_week1"
+        const urlKey = `${val}_url`;
+        const url = userProgress[urlKey];
+
+        if (url) {
+            const trackLabel = track.toUpperCase();
+            setFormData(prev => ({
+                ...prev,
+                title: `${profile?.name} 연구원의 ${trackLabel} ${week.replace("week", "")}주차 프로젝트`,
+                url: url,
+                type: track === "mbti" ? "MBTI" : "GAME"
+            }));
+        }
+    };
 
     const submitProject = async () => {
         if (!formData.author || !formData.title || !formData.url || !formData.password) {
@@ -602,7 +653,7 @@ export default function Showcase() {
             </div>
 
             {/* Gallery Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-10">
                 {isLoading ? (
                     // 로딩 스켈레톤
                     Array(10).fill(0).map((_, i) => (
@@ -646,53 +697,79 @@ export default function Showcase() {
                                         </div>
                                     </>
                                 )}
-                                <div className="aspect-[4/3] rounded-3xl bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center relative transition-all duration-500 overflow-hidden m-2">
+                                <div className="aspect-video rounded-2xl bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center relative transition-all duration-500 overflow-hidden m-3">
                                     {project.image.startsWith("http") ? (
                                         <img
                                             src={project.image}
                                             alt={project.author}
-                                            className="w-32 h-32 group-hover:rotate-12 transition-transform duration-500"
+                                            className="w-24 h-24 group-hover:rotate-12 transition-transform duration-500"
                                         />
                                     ) : (
-                                        <div className="w-32 h-32 flex items-center justify-center text-[80px] group-hover:rotate-12 transition-transform duration-500 drop-shadow-md">
+                                        <div className="w-24 h-24 flex items-center justify-center text-[60px] group-hover:rotate-12 transition-transform duration-500 drop-shadow-md">
                                             {project.image}
                                         </div>
                                     )}
-                                    {/* `AI LAB` Hover 텍스트 제거됨 */}
                                 </div>
-                                <div className="p-6 pt-2 space-y-4 flex-1 flex flex-col">
-                                    <div className="flex gap-2 flex-wrap mb-1">
-                                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${project.type === "MBTI" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" :
-                                            project.type === "GAME" ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
-                                                "bg-primary/10 text-primary border-primary/20"
-                                            }`}>
-                                            {project.type === "MBTI" ? "MBTI TEST" : project.type === "GAME" ? "GAME" : "CUSTOM APP"}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-1 flex-1">
-                                        <h3 className="font-black text-lg tracking-tight group-hover:text-primary transition-colors line-clamp-1 py-1">{project.title}</h3>
-                                        <p className="text-xs text-muted-foreground font-bold flex items-center gap-1.5 pb-2">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                            {project.author} {isCustom ? "개발자" : "연구원"}
-                                        </p>
-                                        <p className="text-[11px] text-muted-foreground/80 font-semibold">
-                                            카테고리: {getCategoryText(project.type)}
-                                        </p>
-                                        {(project.school || project.grade) && (
-                                            <p className="text-[11px] text-primary/70 font-black">
-                                                소속: {project.school} {project.grade ? `${project.grade}학년` : ""} {project.classGroup ? `${project.classGroup}반` : ""}
+                                <div className="p-6 pt-2 space-y-3 flex-1 flex flex-col justify-between">
+                                    <div className="space-y-3">
+                                        <div className="flex gap-2 flex-wrap">
+                                            <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${project.type === "MBTI" ? "bg-purple-500/10 text-purple-400 border-purple-500/20" :
+                                                project.type === "GAME" ? "bg-orange-500/10 text-orange-400 border-orange-500/20" :
+                                                    "bg-primary/10 text-primary border-primary/20"
+                                                }`}>
+                                                {project.type === "MBTI" ? "MBTI TEST" : project.type === "GAME" ? "GAME" : "CUSTOM APP"}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <h3 className="font-black text-lg tracking-tight group-hover:text-primary transition-colors line-clamp-1 py-0.5">{project.title}</h3>
+                                            <p className="text-xs text-muted-foreground font-bold flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                                {project.author} {isCustom ? "개발자" : "연구원"}
                                             </p>
-                                        )}
-                                        {project.createdAt && (
-                                            <p className="text-[11px] text-muted-foreground/80 font-semibold">
-                                                등록일: {project.createdDateKey}
-                                            </p>
-                                        )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-1 opacity-80">
+                                            {(project.school || project.grade) && (
+                                                <p className="text-[10px] text-primary/70 font-black">
+                                                    소속: {project.school} {project.grade ? `${project.grade}학년` : ""}
+                                                </p>
+                                            )}
+                                            {project.createdAt && (
+                                                <p className="text-[10px] text-muted-foreground/60 font-medium">
+                                                    등록일: {project.createdDateKey}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="pt-3 border-t border-border/50">
-                                        <div className="w-full text-center py-2.5 rounded-xl bg-secondary group-hover:bg-primary group-hover:text-white text-xs font-black transition-all uppercase tracking-widest shadow-sm group-hover:shadow-primary/30">
+                                    <div className="pt-3 mt-1 border-t border-border/50 flex gap-2">
+                                        <div 
+                                            onClick={() => {
+                                                setActiveProject(project);
+                                                setShowDetailModal(true);
+                                            }}
+                                            className="flex-1 text-center py-2.5 rounded-xl bg-secondary group-hover:bg-primary group-hover:text-white text-[10px] font-black transition-all uppercase tracking-widest shadow-sm cursor-pointer"
+                                        >
                                             상세 보기
                                         </div>
+                                        
+                                        {/* [NEW] 본인 작품인 경우 수정/삭제 버튼 표시 */}
+                                        {profile?.name === project.author && (
+                                            <div className="flex gap-1.5 animate-in fade-in slide-in-from-right-2 duration-500">
+                                                <button 
+                                                    onClick={(e) => handleEditClick(e, project)}
+                                                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500 hover:text-white transition-all shadow-sm"
+                                                    title="수정하기"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                                </button>
+                                                <button 
+                                                    onClick={(e) => handleDeleteClick(e, project)}
+                                                    className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 text-red-600 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                                    title="삭제하기"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -715,7 +792,7 @@ export default function Showcase() {
                     <h2 className="text-3xl font-black mb-3">내 작품이 목록에 없나요?</h2>
                     <p className="text-muted-foreground mb-8 font-medium">제작 도구에서 '최종 전시하기'를 누르거나, <br />직접 개발한 커스텀 앱의 링크를 수동 등록하여 전 세계에 멋진 작품을 공개해보세요.</p>
                     <div className="flex justify-center gap-4">
-                        <button onClick={() => setShowModal(true)} className="px-10 py-4 bg-primary text-white rounded-[1.25rem] font-black hover:scale-105 transition-transform shadow-2xl shadow-primary/40">
+                        <button onClick={handleOpenSubmitModal} className="px-10 py-4 bg-primary text-white rounded-[1.25rem] font-black hover:scale-105 transition-transform shadow-2xl shadow-primary/40">
                             내 작품 전시 등록하기 ✨
                         </button>
                     </div>
@@ -733,6 +810,39 @@ export default function Showcase() {
                         <p className="text-sm text-muted-foreground font-medium mb-6">HTML, React 등 외부에서 직접 개발한 결과물의 웹 링크를 등록하여 쇼케이스에 뽐내보세요.</p>
 
                         <div className="space-y-4">
+                            {/* [NEW] 과제 불러오기 드롭다운 */}
+                            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 mb-2">
+                                <label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 block">🎯 내 과제 불러오기 (자동 완성)</label>
+                                <select 
+                                    onChange={handleHomeworkSelect}
+                                    className="w-full bg-white border-2 border-primary/20 rounded-xl px-4 py-3 text-xs font-bold focus:border-primary outline-none transition-all"
+                                >
+                                    <option value="">불러올 과제를 선택하세요</option>
+                                    {isLoadingUserProgress ? (
+                                        <option disabled>진도 데이터를 동기화 중...</option>
+                                    ) : userProgress ? (
+                                        <>
+                                            <optgroup label="MBTI Maker">
+                                                {[1,2,3,4].map(w => (
+                                                    <option key={`mbti_${w}`} value={`mbti_week${w}`} disabled={!userProgress[`mbti_week${w}`]}>
+                                                        {w}주차 과제 {userProgress[`mbti_week${w}`] ? "✅" : "❌"}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                            <optgroup label="Pose Game">
+                                                {[1,2,3,4].map(w => (
+                                                    <option key={`pose_${w}`} value={`pose_week${w}`} disabled={!userProgress[`pose_week${w}`]}>
+                                                        {w}주차 과제 {userProgress[`pose_week${w}`] ? "✅" : "❌"}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        </>
+                                    ) : (
+                                        <option disabled>제출된 과제가 없습니다.</option>
+                                    )}
+                                </select>
+                                <p className="text-[9px] text-muted-foreground mt-2 font-medium">※ 제출 완료된 과제만 불러올 수 있습니다.</p>
+                            </div>
                             <div>
                                 <label className="text-xs font-bold text-primary uppercase tracking-widest mb-1.5 block">카테고리 (Category)</label>
                                 <select name="type" value={formData.type} onChange={handleInputChange as any} className="w-full bg-primary/10 border border-primary/30 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary font-bold text-primary">
@@ -963,14 +1073,30 @@ export default function Showcase() {
                                 </div>
                             </div>
 
-                            <div className="pt-4">
-                                <Link
-                                    href={activeProject.link}
-                                    className="w-full py-4 bg-primary text-white rounded-xl font-black hover:bg-primary/90 hover:-translate-y-1 transition-all shadow-xl shadow-primary/20 flex justify-center items-center gap-2 group"
-                                >
-                                    프로젝트 직접 체험하러 가기
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover:translate-x-1 transition-transform"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                                </Link>
+                            <div className="pt-4 space-y-3">
+                                {activeProject.link.includes("drive.google.com") ? (
+                                    <>
+                                        <button
+                                            onClick={() => window.open(`/preview?url=${encodeURIComponent(activeProject.link)}`, '_blank')}
+                                            className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black hover:bg-indigo-700 hover:-translate-y-1 transition-all shadow-xl shadow-indigo-600/20 flex justify-center items-center gap-2 group"
+                                        >
+                                            새 창에서 라이브 결과물 보기 🚀
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse"><path d="M15 3h6v6"></path><path d="M10 14 21 3"></path><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path></svg>
+                                        </button>
+                                        <p className="text-[10px] text-center text-muted-foreground font-bold">
+                                            ※ 구글 드라이브 보안 정책으로 인해 <span className="text-secondary-foreground font-black">별도의 안전한 가상 환경</span>에서 실행됩니다.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <Link
+                                        href={activeProject.link}
+                                        target="_blank"
+                                        className="w-full py-4 bg-primary text-white rounded-xl font-black hover:bg-primary/90 hover:-translate-y-1 transition-all shadow-xl shadow-primary/20 flex justify-center items-center gap-2 group"
+                                    >
+                                        프로젝트 직접 체험하러 가기
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="group-hover:translate-x-1 transition-transform"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     </div>

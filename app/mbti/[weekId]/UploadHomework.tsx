@@ -48,7 +48,8 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
             }>(new URLSearchParams({
                 action: "checkUserStatus",
                 user_id: nickname,
-                week: weekId.toString()
+                week: weekId.toString(),
+                course_type: "MBTI"
             }));
 
             if (res.data) {
@@ -124,6 +125,14 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
         if (file.size > MAX_SIZE) {
             setErrorMsg("파일 크기가 너무 큽니다. 20MB 이하의 파일만 제출할 수 있습니다.");
             return;
+        }
+
+        // [추가] 재제출 컨펌 로직
+        if (statusData.submissionStatus === 'verified') {
+            const confirmed = window.confirm(
+                `이미 제출된 [${statusData.fileName || "과제"}] 파일이 있습니다.\n\n새로운 파일로 교체하시겠습니까? (이전 파일은 휴지통으로 이동됩니다.)`
+            );
+            if (!confirmed) return;
         }
 
         setIsUploading(true);
@@ -237,7 +246,16 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                     <div>
                                         <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Submit Status</p>
                                         <h4 className="font-black text-[#2F3D4A]">
-                                            {statusData.submissionStatus === 'verified' ? '제출 완료 (확인됨)' : 
+                                            {statusData.submissionStatus === 'verified' ? (
+                                                <span className="flex flex-col">
+                                                    <span>제출 완료 (확인됨)</span>
+                                                    {statusData.fileName && (
+                                                        <span className="text-[10px] text-green-600 font-medium truncate max-w-[150px]">
+                                                            📄 {statusData.fileName}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            ) : 
                                             statusData.submissionStatus === 'format_mismatch' ? '형식 오류 (수정 필요)' : '미제출 상태'}
                                         </h4>
                                     </div>
@@ -343,7 +361,10 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                     제출하는 중...
                                 </>
                             ) : (
-                                <><span>✅</span> 과제 제출 완료하기</>
+                                <>
+                                    <span>{statusData.submissionStatus === 'verified' ? '🔄' : '✅'}</span> 
+                                    {statusData.submissionStatus === 'verified' ? '과제 수정하기 (다시 제출)' : '과제 제출 완료하기'}
+                                </>
                             )}
                         </button>
                     </div>

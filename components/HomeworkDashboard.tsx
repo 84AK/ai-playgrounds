@@ -9,7 +9,6 @@ interface HomeworkDashboardProps {
 }
 
 const mbtiSteps = [
-    { id: 0, label: "0주차: MBTI 메이커", key: "mbti_week0" },
     { id: 1, label: "1주차: 기획 & 뼈대", key: "mbti_week1" },
     { id: 2, label: "2주차: 디자인 꾸미기", key: "mbti_week2" },
     { id: 3, label: "3주차: JS 인공지능 로직", key: "mbti_week3" },

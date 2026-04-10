@@ -13,7 +13,6 @@ interface StudyLabPanelProps {
 }
 
 const mbtiLabels = [
-  "0주차: MBTI 메이커 & 쇼케이스 (실습)",
   "1주차: 기획 & 뼈대 잡기",
   "2주차: 나만의 디자인 꾸미기",
   "3주차: 숨 불어넣기 (JS 로직)",
@@ -31,14 +30,13 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
   const router = useRouter();
   const profile = useLocalProfile();
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
-  const [mbtiProgress, setMbtiProgress] = useState([false, false, false, false, false]);
+  const [mbtiProgress, setMbtiProgress] = useState([false, false, false, false]);
   const [poseProgress, setPoseProgress] = useState([false, false, false, false]);
   const [activeTab, setActiveTab] = useState<"MBTI" | "POSE">("MBTI");
   const [detailedStatus, setDetailedStatus] = useState<Record<string, { status: string, fileName: string }>>({});
 
   const applyProgressData = (data: any, detailed: any = {}) => {
     setMbtiProgress([
-      data.mbti_week0,
       data.mbti_week1,
       data.mbti_week2,
       data.mbti_week3,
@@ -80,11 +78,7 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
   const navigateToCourse = (track: "MBTI" | "POSE", weekIndex: number) => {
     if (!profile) return;
     if (track === "MBTI") {
-      if (weekIndex === 0) {
-        router.push("/mbti");
-      } else {
-        router.push(`/mbti/week${weekIndex}`);
-      }
+      router.push(`/mbti/week${weekIndex + 1}`);
     } else {
       router.push(`/pose/week${weekIndex + 1}`);
     }
@@ -95,7 +89,7 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
   const progressPercentage = (activeProgress.filter(Boolean).length / activeProgress.length) * 100;
 
   const getWeekStatus = (track: string, index: number) => {
-    const key = `${track.toLowerCase()}_week${track === "MBTI" ? index : index + 1}`;
+    const key = `${track.toLowerCase()}_week${index + 1}`;
     const detailed = detailedStatus[key];
     const baseProgress = activeProgress[index];
 
