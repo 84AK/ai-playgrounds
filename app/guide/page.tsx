@@ -29,7 +29,7 @@ export default async function GuidePage() {
             </div>
 
             <div className="space-y-20">
-                <section className="prose prose-invert prose-p:text-muted-foreground prose-headings:text-foreground prose-a:text-primary max-w-none prose-blockquote:border-l-primary prose-blockquote:bg-primary/5 prose-blockquote:py-1">
+                <section className="prose prose-slate prose-p:text-muted-foreground prose-headings:text-foreground prose-a:text-primary max-w-none prose-blockquote:border-l-primary prose-blockquote:bg-primary/5 prose-blockquote:py-1">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{guideContent}</ReactMarkdown>
                 </section>
             </div>

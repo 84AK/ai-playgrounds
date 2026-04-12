@@ -170,7 +170,8 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                 })
             );
 
-            const isSuccess = checkResult?.data?.[`mbti_week${weekId}`] === true || checkResult?.data?.[`week${weekId}`] === true;
+            // 앱스스크립트에서 보낸 통합 주차 키 확인
+            const isSuccess = checkResult?.data?.[`week${weekId}`] === true;
 
             if (isSuccess) {
                 setModal({

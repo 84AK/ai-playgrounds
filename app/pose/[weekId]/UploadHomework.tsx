@@ -148,8 +148,8 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                 })
             );
 
-            // 앱스스크립트에서 보낸 소문자 키 확인
-            if (checkResult?.data?.[`pose_week${weekId}`] === true) {
+            // 앱스스크립트에서 보낸 통합 주차 키 확인
+            if (checkResult?.data?.[`week${weekId}`] === true) {
                 setModal({
                     isOpen: true,
                     type: "success",

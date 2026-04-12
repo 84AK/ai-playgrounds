@@ -6,8 +6,7 @@ export interface StudentRanking {
     grade: string;
     classGroup: string;
     points: number;
-    mbtiProgress: boolean[];
-    poseProgress: boolean[];
+    progress: boolean[];
 }
 
 export interface ClassRanking {

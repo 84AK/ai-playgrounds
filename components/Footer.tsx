@@ -37,6 +37,9 @@ export default function Footer({ onOpenPrivacyPolicy }: FooterProps) {
           <Link href="/guide" className="hover:text-primary transition-colors cursor-pointer">
             Guide
           </Link>
+          <Link href="/admin" className="hover:text-primary transition-colors cursor-pointer">
+            Admin
+          </Link>
           <button
             onClick={onOpenPrivacyPolicy}
             className="hover:text-primary transition-colors cursor-pointer text-sm font-black uppercase tracking-widest text-muted-foreground"

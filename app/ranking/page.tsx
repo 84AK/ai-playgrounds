@@ -178,7 +178,7 @@ export default function RankingPage() {
                                             </li>
                                             <li className="flex items-center gap-3 text-sm font-bold text-slate-600">
                                                 <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs">✓</span>
-                                                8주차 모두 제출 시 명예의 전당
+                                                12주차 모두 제출 시 명예의 전당
                                             </li>
                                         </ul>
                                     </div>

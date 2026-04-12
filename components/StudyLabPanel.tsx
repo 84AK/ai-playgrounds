@@ -12,44 +12,49 @@ interface StudyLabPanelProps {
   className?: string;
 }
 
-const mbtiLabels = [
-  "1주차: 기획 & 뼈대 잡기",
-  "2주차: 나만의 디자인 꾸미기",
-  "3주차: 숨 불어넣기 (JS 로직)",
-  "4주차: 세상에 보여주기 (배포)",
-];
-
-const poseLabels = [
-  "1주차: 티처블 머신 AI 연동",
-  "2주차: 캔버스 게임 로직 뼈대",
-  "3주차: 충돌 처리 & 파티클",
-  "4주차: 게임 완성 및 카카오 공유",
-];
+interface CourseStructureItem {
+  track: string;
+  week: number;
+  title: string;
+}
 
 export default function StudyLabPanel({ highlighted = false, className = "" }: StudyLabPanelProps) {
   const router = useRouter();
   const profile = useLocalProfile();
+  
+  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
-  const [mbtiProgress, setMbtiProgress] = useState([false, false, false, false]);
-  const [poseProgress, setPoseProgress] = useState([false, false, false, false]);
-  const [activeTab, setActiveTab] = useState<"MBTI" | "POSE">("MBTI");
+  const [structure, setStructure] = useState<CourseStructureItem[]>([]);
+  const [progress, setProgress] = useState<Record<string, boolean>>({});
+  const [activeTab, setActiveTab] = useState<string>("MBTI");
   const [detailedStatus, setDetailedStatus] = useState<Record<string, { status: string, fileName: string }>>({});
 
   const applyProgressData = (data: any, detailed: any = {}) => {
-    setMbtiProgress([
-      data.mbti_week1,
-      data.mbti_week2,
-      data.mbti_week3,
-      data.mbti_week4,
-    ]);
-    setPoseProgress([
-      data.pose_week1,
-      data.pose_week2,
-      data.pose_week3,
-      data.pose_week4,
-    ]);
+    const pMap: Record<string, boolean> = {};
+    for (let i = 1; i <= 12; i++) {
+      pMap[`week${i}`] = !!data[`week${i}`];
+    }
+    setProgress(pMap);
     setDetailedStatus(detailed || {});
   };
+
+  useEffect(() => {
+    const fetchStructure = async () => {
+      try {
+        const res = await fetch("/api/course/structure");
+        const result = await res.json();
+        if (result.success) {
+          setStructure(result.data);
+          if (result.data.length > 0) setActiveTab(result.data[0].track);
+        }
+      } catch (err) {
+        console.error("Failed to load structure", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchStructure();
+  }, []);
 
   // [NEW] 컴포넌트가 열리거나 이름이 로드되면 자동으로 진도 새로고침
   useEffect(() => {
@@ -75,23 +80,22 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
     }
   };
 
-  const navigateToCourse = (track: "MBTI" | "POSE", weekIndex: number) => {
+  const navigateToCourse = (track: string, week: number) => {
     if (!profile) return;
-    if (track === "MBTI") {
-      router.push(`/mbti/week${weekIndex + 1}`);
-    } else {
-      router.push(`/pose/week${weekIndex + 1}`);
-    }
+    // 모든 트랙이 선생님의 개인 설정을 따를 수 있도록 범용 커리큘럼 라우트로 통합 연결
+    router.push(`/curriculum/${encodeURIComponent(track)}/week${week}`);
   };
 
-  const activeProgress = activeTab === "MBTI" ? mbtiProgress : poseProgress;
-  const activeLabels = activeTab === "MBTI" ? mbtiLabels : poseLabels;
-  const progressPercentage = (activeProgress.filter(Boolean).length / activeProgress.length) * 100;
+  const tabs = Array.from(new Set(structure.map(s => s.track)));
+  const currentWeeks = structure.filter(s => s.track === activeTab);
+  
+  const activeProgressCount = currentWeeks.filter(s => progress[`week${s.week}`]).length;
+  const progressPercentage = currentWeeks.length > 0 ? (activeProgressCount / currentWeeks.length) * 100 : 0;
 
-  const getWeekStatus = (track: string, index: number) => {
-    const key = `${track.toLowerCase()}_week${index + 1}`;
+  const getWeekStatusFromData = (week: number) => {
+    const key = `week${week}`;
     const detailed = detailedStatus[key];
-    const baseProgress = activeProgress[index];
+    const baseProgress = progress[key];
 
     if (!baseProgress) return { icon: null, text: "미제출", color: "text-slate-300" };
     if (detailed?.status === "format_mismatch") return { icon: "⚠️", text: "형식 오류", color: "text-amber-500 bg-amber-50 border-amber-200" };
@@ -126,31 +130,29 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
             </p>
           </div>
 
-          <div className="flex gap-2 bg-slate-100 border-2 border-[#2F3D4A] p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab("MBTI")}
-              className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${activeTab === "MBTI" ? "bg-primary text-white border border-[#2F3D4A] shadow-sm" : "text-slate-600 hover:text-primary"}`}
-            >
-              MBTI Maker
-            </button>
-            <button
-              onClick={() => setActiveTab("POSE")}
-              className={`flex-1 py-2 text-xs font-black rounded-lg transition-all ${activeTab === "POSE" ? "bg-sky-500 text-white border border-[#2F3D4A] shadow-sm" : "text-slate-600 hover:text-sky-500"}`}
-            >
-              Pose Game
-            </button>
+          <div className="flex gap-2 bg-slate-100 border-2 border-[#2F3D4A] p-1 rounded-xl overflow-x-auto no-scrollbar">
+            {tabs.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 min-w-[100px] py-2 text-xs font-black rounded-lg transition-all ${activeTab === tab ? "bg-primary text-white border border-[#2F3D4A] shadow-sm" : "text-slate-600 hover:text-primary"}`}
+              >
+                {tab}
+              </button>
+            ))}
+            {tabs.length === 0 && !isLoading && <p className="text-[10px] p-2 text-muted-foreground">등록된 코스가 없습니다.</p>}
           </div>
 
           <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar flex-1">
-            {activeLabels.map((title, i) => {
-              const status = getWeekStatus(activeTab, i);
+            {currentWeeks.map((item, i) => {
+              const status = getWeekStatusFromData(item.week);
               return (
                 <button
                   key={i}
-                  onClick={() => navigateToCourse(activeTab, i)}
-                  className={`w-full text-left flex items-center justify-between p-3 rounded-xl border-2 border-[#2F3D4A] transition-all font-sans group cursor-pointer ${activeProgress[i] ? "bg-white" : "bg-white hover:bg-slate-50"}`}
+                  onClick={() => navigateToCourse(item.track, item.week)}
+                  className={`w-full text-left flex items-center justify-between p-3 rounded-xl border-2 border-[#2F3D4A] transition-all font-sans group cursor-pointer ${progress[`week${item.week}`] ? "bg-white" : "bg-white hover:bg-slate-50"}`}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
                     <div className={`w-5 h-5 rounded-md border-2 border-[#2F3D4A] flex items-center justify-center transition-colors shrink-0 ${status.icon === "✅" ? "bg-green-500" : status.icon === "⚠️" ? "bg-amber-500" : "bg-white"}`}>
                       {status.icon === "✅" && (
                         <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -161,8 +163,8 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
                         <span className="text-[10px] text-white font-black">!</span>
                       )}
                     </div>
-                    <span className={`text-sm font-black transition-colors truncate pr-2 ${status.icon === "✅" ? "text-slate-300 line-through decoration-[#2F3D4A]/30" : "text-[#2F3D4A] group-hover:text-primary"}`}>
-                      {title}
+                    <span className={`text-sm font-black transition-colors truncate ${status.icon === "✅" ? "text-slate-300 line-through decoration-[#2F3D4A]/30" : "text-[#2F3D4A] group-hover:text-primary"}`}>
+                      {item.week}주차: {item.title || "내용 보기"}
                     </span>
                   </div>
 
@@ -172,6 +174,11 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
                 </button>
               );
             })}
+            {currentWeeks.length === 0 && !isLoading && (
+              <div className="py-8 text-center text-sm text-slate-400 font-bold bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                준비 중인 차시입니다. 🚀
+              </div>
+            )}
           </div>
 
           <div className="relative z-10 space-y-2 pt-3 border-t-2 border-[#2F3D4A] shrink-0">

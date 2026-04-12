@@ -5,27 +5,25 @@ import { getCourseContent, type CourseTrack } from "@/lib/courseContent";
 export async function GET(request: Request) {
     try {
         const cookieStore = await cookies();
-        const hasAdmin = cookieStore.has("admin_session");
-
-        if (!hasAdmin) {
-            return NextResponse.json({ success: false, error: "관리자 권한이 없습니다." }, { status: 403 });
-        }
+        // 학생도 수업 내용을 읽을 수 있어야 하므로 관리자 체크 제거
 
         const { searchParams } = new URL(request.url);
         const trackParam = searchParams.get("track");
         const weekParam = searchParams.get("week");
 
-        const resolvedTrack: CourseTrack = trackParam === "POSE" ? "POSE" : "MBTI";
+        const resolvedTrack: string = trackParam || "MBTI";
         const weekId = Number(weekParam);
 
         if (isNaN(weekId) || weekId < 1) {
             return NextResponse.json({ success: false, error: "유효하지 않은 주차입니다." }, { status: 400 });
         }
 
-        const result = await getCourseContent(resolvedTrack, weekId);
+        const customUrl = cookieStore.get("custom_gs_url")?.value;
+        const result = await getCourseContent(resolvedTrack, weekId, customUrl);
         return NextResponse.json({ 
             success: true, 
             content: result.content,
+            title: result.title,
             source: result.source
         });
     } catch (error) {

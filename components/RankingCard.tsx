@@ -23,13 +23,9 @@ export function RankingCard({ ranking, rank }: RankingCardProps) {
         return "text-slate-400 bg-slate-50 border-slate-100";
     };
 
-    const mbtiProgress = ranking.mbtiProgress || [];
-    const poseProgress = ranking.poseProgress || [];
-
-    const totalHomeworks = mbtiProgress.length + poseProgress.length;
-    const submittedCount = [...mbtiProgress, ...poseProgress].filter(
-        (s) => s === true || (s as any) === "TRUE"
-    ).length;
+    const progress = ranking.progress || [];
+    const submittedCount = progress.filter(s => s === true || (s as any) === "TRUE").length;
+    const totalHomeworks = progress.length;
     const progressPercent = totalHomeworks > 0 ? (submittedCount / totalHomeworks) * 100 : 0;
 
     return (
@@ -67,48 +63,27 @@ export function RankingCard({ ranking, rank }: RankingCardProps) {
                     </div>
                 </div>
 
-                {/* Submission Matrix */}
-                <div className="flex flex-wrap items-center gap-y-2 gap-x-4 mb-3">
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter w-8">MBTI</span>
-                        <div className="flex gap-1">
-                            {ranking.mbtiProgress.map((submitted, i) => (
-                                <div 
-                                    key={i}
-                                    title={`MBTI ${i + 1}주차: ${submitted ? '제출' : '미제출'}`}
-                                    className={`w-3.5 h-3.5 rounded-sm flex items-center justify-center text-[8px] font-black border ${
-                                        submitted 
-                                        ? 'bg-primary border-primary text-white' 
-                                        : 'bg-white border-slate-200 text-slate-300'
-                                    }`}
-                                >
-                                    {i + 1}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter w-8">POSE</span>
-                        <div className="flex gap-1">
-                            {ranking.poseProgress.map((submitted, i) => (
-                                <div 
-                                    key={i}
-                                    title={`POSE ${i+1}주차: ${submitted ? '제출' : '미제출'}`}
-                                    className={`w-3.5 h-3.5 rounded-sm flex items-center justify-center text-[8px] font-black border ${
-                                        submitted 
-                                        ? 'bg-sky-500 border-sky-500 text-white' 
-                                        : 'bg-white border-slate-200 text-slate-300'
-                                    }`}
-                                >
-                                    {i + 1}
-                                </div>
-                            ))}
-                        </div>
+                {/* Unified Progress Matrix */}
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <div className="flex gap-1 flex-wrap">
+                        {progress.map((submitted, i) => (
+                            <div 
+                                key={i}
+                                title={`${i + 1}차시: ${submitted ? '제출' : '미제출'}`}
+                                className={`w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black border-2 transition-all ${
+                                    submitted 
+                                    ? 'bg-primary border-[#2F3D4A] text-white shadow-[1px_1px_0px_0px_#2F3D4A]' 
+                                    : 'bg-white border-slate-100 text-slate-200'
+                                }`}
+                            >
+                                {i + 1}
+                            </div>
+                        ))}
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
                         <motion.div
                             initial={{ width: 0 }}
                             animate={{ width: `${progressPercent}%` }}

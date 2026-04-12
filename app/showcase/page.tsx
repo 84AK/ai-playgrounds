@@ -42,6 +42,7 @@ export default function Showcase() {
     const [deletePassword, setDeletePassword] = useState("");
     const [userProgress, setUserProgress] = useState<any>(null);
     const [isLoadingUserProgress, setIsLoadingUserProgress] = useState(false);
+    const [courseStructure, setCourseStructure] = useState<any[]>([]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -355,6 +356,12 @@ export default function Showcase() {
         if (!profile?.name || userProgress) return;
         setIsLoadingUserProgress(true);
         try {
+            const structureRes = await fetch("/api/course/structure");
+            const structureData = await structureRes.json();
+            if (structureData.success) {
+                setCourseStructure(structureData.data);
+            }
+
             const res = await getAppsScriptJson<any>(new URLSearchParams({
                 action: "getProgress",
                 user_id: profile.name
@@ -379,17 +386,20 @@ export default function Showcase() {
         const val = e.target.value;
         if (!val || !userProgress) return;
 
-        const [track, week] = val.split("_"); // e.g. "mbti_week1"
+        // val is like "week1"
+        const weekNum = val.replace("week", "");
         const urlKey = `${val}_url`;
         const url = userProgress[urlKey];
 
         if (url) {
-            const trackLabel = track.toUpperCase();
+            const item = courseStructure.find(s => s.week === parseInt(weekNum));
+            const trackLabel = item?.track || "PROJECT";
+            
             setFormData(prev => ({
                 ...prev,
-                title: `${profile?.name} 연구원의 ${trackLabel} ${week.replace("week", "")}주차 프로젝트`,
+                title: `${profile?.name} 연구원의 ${trackLabel} ${weekNum}주차 프로젝트`,
                 url: url,
-                type: track === "mbti" ? "MBTI" : "GAME"
+                type: trackLabel.toUpperCase() === "POSE" ? "GAME" : "MBTI"
             }));
         }
     };
@@ -820,25 +830,20 @@ export default function Showcase() {
                                     <option value="">불러올 과제를 선택하세요</option>
                                     {isLoadingUserProgress ? (
                                         <option disabled>진도 데이터를 동기화 중...</option>
-                                    ) : userProgress ? (
+                                    ) : (userProgress && courseStructure.length > 0) ? (
                                         <>
-                                            <optgroup label="MBTI Maker">
-                                                {[1,2,3,4].map(w => (
-                                                    <option key={`mbti_${w}`} value={`mbti_week${w}`} disabled={!userProgress[`mbti_week${w}`]}>
-                                                        {w}주차 과제 {userProgress[`mbti_week${w}`] ? "✅" : "❌"}
-                                                    </option>
-                                                ))}
-                                            </optgroup>
-                                            <optgroup label="Pose Game">
-                                                {[1,2,3,4].map(w => (
-                                                    <option key={`pose_${w}`} value={`pose_week${w}`} disabled={!userProgress[`pose_week${w}`]}>
-                                                        {w}주차 과제 {userProgress[`pose_week${w}`] ? "✅" : "❌"}
-                                                    </option>
-                                                ))}
-                                            </optgroup>
+                                            {Array.from(new Set(courseStructure.map(s=>s.track))).map(track => (
+                                                <optgroup key={track} label={track}>
+                                                    {courseStructure.filter(s=>s.track === track).map(s => (
+                                                        <option key={`${track}_${s.week}`} value={`week${s.week}`} disabled={!userProgress[`week${s.week}`]}>
+                                                            {s.week}주차: {s.title} {userProgress[`week${s.week}`] ? "✅" : "❌"}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            ))}
                                         </>
                                     ) : (
-                                        <option disabled>제출된 과제가 없습니다.</option>
+                                        <option disabled>제출된 과제가 없거나 강의 구조를 불러오지 못했습니다.</option>
                                     )}
                                 </select>
                                 <p className="text-[9px] text-muted-foreground mt-2 font-medium">※ 제출 완료된 과제만 불러올 수 있습니다.</p>

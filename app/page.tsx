@@ -20,7 +20,7 @@ export default function Home() {
   };
 
   return (
-    <div className="space-y-16 pb-20 overflow-x-hidden bg-[#FDFAEF]">
+    <div className="space-y-16 pb-20 overflow-x-hidden bg-[#FDFAEF] relative">
       {/* Bright & Cute Hero Section */}
       <section className="relative pt-28 pb-16 px-6 overflow-hidden">
         <div className="max-w-7xl mx-auto relative z-10">

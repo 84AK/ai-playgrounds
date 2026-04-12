@@ -3,149 +3,220 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AdminCourseEditorPanel from "@/components/AdminCourseEditorPanel";
-import { type CourseTrack } from "@/lib/courseContent";
-import { useEffect, useRef } from "react";
-
-const tracks: CourseTrack[] = ["MBTI", "POSE"];
-const weeks = [1, 2, 3, 4];
-
-function normalizeTrack(value: string | null): CourseTrack {
-    return value === "POSE" ? "POSE" : "MBTI";
-}
+import { type CourseStructureItem } from "@/lib/courseContent";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { motion } from "framer-motion";
 
 function normalizeWeek(value: string | null): number {
     const parsed = Number(value);
-    return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4 ? parsed : 1;
+    return Number.isInteger(parsed) && parsed >= 1 ? parsed : 1;
 }
 
 export default function AdminCoursePage() {
     const searchParams = useSearchParams();
-    const track = normalizeTrack(searchParams.get("track"));
+    const router = useRouter();
+    const track = searchParams.get("track") || "MBTI";
     const weekId = normalizeWeek(searchParams.get("week"));
+
+    const [structure, setStructure] = useState<CourseStructureItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [currentBackend, setCurrentBackend] = useState<"default" | "custom">("default");
+
+    // Registration Form State
+    const [regTrack, setRegTrack] = useState("");
+    const [regWeek, setRegWeek] = useState(1);
+    const [regTitle, setRegTitle] = useState("");
 
     const trackContainerRef = useRef<HTMLDivElement>(null);
     const weekContainerRef = useRef<HTMLDivElement>(null);
 
-    // Horizontal wheel scroll logic
     useEffect(() => {
-        const handleWheel = (e: WheelEvent, container: HTMLDivElement | null) => {
-            if (!container) return;
-            // Prevent default vertical scroll and apply horizontal scroll instead
-            if (e.deltaY !== 0) {
-                e.preventDefault();
-                container.scrollLeft += e.deltaY;
+        // 백엔드 상태 확인
+        const cookies = document.cookie.split("; ");
+        if (cookies.find(row => row.startsWith("custom_gs_url="))) {
+            setCurrentBackend("custom");
+        }
+
+        const fetchStructure = async () => {
+            try {
+                const res = await fetch("/api/course/structure");
+                const result = await res.json();
+                if (result.success) setStructure(result.data);
+            } catch (err) {
+                console.error("Failed to load structure", err);
+            } finally {
+                setIsLoading(false);
             }
         };
-
-        const tContainer = trackContainerRef.current;
-        const wContainer = weekContainerRef.current;
-
-        const handleTrackWheel = (e: WheelEvent) => handleWheel(e, tContainer);
-        const handleWeekWheel = (e: WheelEvent) => handleWheel(e, wContainer);
-
-        if (tContainer) tContainer.addEventListener("wheel", handleTrackWheel, { passive: false });
-        if (wContainer) wContainer.addEventListener("wheel", handleWeekWheel, { passive: false });
-
-        return () => {
-            if (tContainer) tContainer.removeEventListener("wheel", handleTrackWheel);
-            if (wContainer) wContainer.removeEventListener("wheel", handleWeekWheel);
-        };
+        fetchStructure();
     }, []);
 
+    const tracks = useMemo(() => {
+        const unique = Array.from(new Set(structure.map(s => s.track)));
+        if (unique.length === 0) return ["MBTI", "POSE"];
+        return unique;
+    }, [structure]);
+
+    const weeks = useMemo(() => {
+        const filtered = structure
+            .filter(s => s.track.toUpperCase() === track.toUpperCase())
+            .map(s => s.week)
+            .sort((a,b) => a - b);
+        if (filtered.length === 0) return Array.from({ length: 12 }, (_, i) => i + 1);
+        return filtered;
+    }, [structure, track]);
+
+    const handleRegister = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const res = await fetch("/api/course/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ track: regTrack, weekId: regWeek, title: regTitle, content: `# ${regTitle}\n\n새로운 수업 내용을 입력해 주세요.` })
+            });
+            if (res.ok) {
+                alert("새 주차가 등록되었습니다.");
+                router.push(`/admin/course?track=${regTrack}&week=${regWeek}`);
+            }
+        } catch (err) { alert("등록 실패"); }
+    };
+
     return (
-        <div className="min-h-screen bg-background px-6 py-10 text-foreground">
-            <div className="mx-auto max-w-7xl space-y-8">
-                <header className="flex flex-col gap-4 rounded-3xl border border-border bg-secondary/10 p-6 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="space-y-2">
-                        <p className="text-xs font-bold uppercase tracking-[0.35em] text-muted-foreground">Admin</p>
-                        <h1 className="text-3xl font-black tracking-tight">주차별 코스 콘텐츠 편집</h1>
-                        <p className="text-sm text-muted-foreground">
-                            학생용 코스 페이지와 분리된 관리자 전용 편집 화면입니다.
-                        </p>
+        <div className="min-h-screen bg-[#FDFAEF] px-6 py-12 text-[#2F3D4A] font-sans">
+            <div className="mx-auto max-w-7xl space-y-10">
+                
+                {/* Dashboard Navigation Header */}
+                <div className="flex items-center justify-between bg-white border-4 border-[#2F3D4A] rounded-3xl p-5 shadow-[6px_6px_0px_0px_#2F3D4A]">
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={() => router.push("/admin")}
+                            className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white text-sm border-2 border-[#2F3D4A] hover:scale-110 transition-transform"
+                        >
+                            🏠
+                        </button>
+                        <div>
+                            <h2 className="text-xl font-black italic tracking-tighter">Admin <span className="text-primary tracking-normal">Course Center</span></h2>
+                            <div className="flex items-center gap-2 mt-0.5">
+                                <span className={`w-2 h-2 rounded-full ${currentBackend === "custom" ? "bg-emerald-500 animate-pulse" : "bg-slate-300"}`}></span>
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    {currentBackend === "custom" ? "Working on Custom Sheet" : "Default Database Mode"}
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                        <Link
-                            href="/admin/feedback"
-                            className="rounded-2xl bg-primary px-4 py-3 text-sm font-bold text-white shadow-lg transition-all hover:bg-primary/90 hover:scale-105"
-                        >
-                            🧑‍🏫 학생 피드백 하러가기
+                    <div className="hidden md:flex items-center gap-3">
+                        <Link href="/admin/setup" className="px-4 py-2 bg-[#E0F2FE] border-2 border-[#2F3D4A] rounded-xl text-xs font-black text-sky-600 shadow-[2px_2px_0px_0px_#2F3D4A] hover:translate-y-[-2px] transition-all">
+                            ⚙️ 환경 설정
                         </Link>
-                        <Link
-                            href={track === "POSE" ? `/pose/week${weekId}` : `/mbti/week${weekId}`}
-                            className="rounded-2xl border border-border px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                            현재 학습 페이지 보기
-                        </Link>
-                        <form action="/api/admin/logout" method="post">
-                            <button
-                                type="submit"
-                                className="rounded-2xl border border-border px-4 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                        <button onClick={() => window.location.href="/"} className="px-4 py-2 bg-white border-2 border-slate-200 rounded-xl text-xs font-black text-slate-400 hover:text-primary transition-colors">
+                            나가기
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                    
+                    {/* Sidebar Area: Structure Selection */}
+                    <div className="lg:col-span-1 space-y-6">
+                        <div className="bg-white border-4 border-[#2F3D4A] rounded-[32px] p-6 shadow-[8px_8px_0px_0px_#2F3D4A] space-y-8">
+                            <div>
+                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-1">Tracks</h3>
+                                <div className="flex flex-col gap-2">
+                                    {tracks.map((item) => (
+                                        <Link
+                                            key={item}
+                                            href={`/admin/course?track=${item}&week=${weekId}`}
+                                            className={`w-full px-5 py-3 rounded-2xl font-black text-sm border-2 transition-all ${
+                                                item.toUpperCase() === track.toUpperCase()
+                                                    ? "bg-primary text-white border-[#2F3D4A] shadow-[4px_4px_0px_0px_#2F3D4A] translate-y-[-2px]"
+                                                    : "bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100"
+                                            }`}
+                                        >
+                                            {item}
+                                        </Link>
+                                    ))}
+                                    <button 
+                                        onClick={() => {
+                                            setRegTrack("");
+                                            setRegWeek(1);
+                                            setRegTitle("");
+                                            setIsRegistering(true);
+                                        }}
+                                        className="w-full mt-2 py-3 bg-white border-2 border-dashed border-slate-300 rounded-2xl text-[10px] font-black text-slate-400 hover:border-primary hover:text-primary transition-all uppercase tracking-widest"
+                                    >
+                                        + 새로운 트랙 추가
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-1">Weeks</h3>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {weeks.map((item) => (
+                                        <Link
+                                            key={item}
+                                            href={`/admin/course?track=${track}&week=${item}`}
+                                            className={`px-3 py-3 rounded-xl font-black text-xs text-center border-2 transition-all ${
+                                                item === weekId
+                                                    ? "bg-primary text-white border-[#2F3D4A] shadow-[3px_3px_0px_0px_#2F3D4A] translate-y-[-1px]"
+                                                    : "bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100"
+                                            }`}
+                                        >
+                                            {item}주차
+                                        </Link>
+                                    ))}
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        setRegTrack(track);
+                                        setRegWeek(weeks.length > 0 ? Math.max(...weeks) + 1 : 1);
+                                        setRegTitle("");
+                                        setIsRegistering(true);
+                                    }}
+                                    className="w-full mt-4 py-3 bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl text-[10px] font-black text-slate-400 hover:border-primary hover:text-primary transition-all"
+                                >
+                                    + {track} 주차 추가
+                                </button>
+                            </div>
+                        </div>
+
+                        {isRegistering && (
+                            <motion.form 
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                onSubmit={handleRegister} 
+                                className="bg-white border-4 border-primary rounded-[32px] p-6 shadow-[8px_8px_0px_0px_#2F3D4A] space-y-4"
                             >
-                                관리자 로그아웃
-                            </button>
-                        </form>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-primary uppercase">Track</label>
+                                    <input value={regTrack} onChange={e=>setRegTrack(e.target.value)} placeholder="MBTI" className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm focus:border-primary outline-none" required />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-primary uppercase">Week No.</label>
+                                    <input type="number" value={regWeek} onChange={e=>setRegWeek(Number(e.target.value))} className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm focus:border-primary outline-none" required />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-black text-primary uppercase">Title</label>
+                                    <input value={regTitle} onChange={e=>setRegTitle(e.target.value)} placeholder="Lesson Title" className="w-full bg-slate-50 border-2 border-slate-100 rounded-xl px-4 py-2 text-sm focus:border-primary outline-none" required />
+                                </div>
+                                <button type="submit" className="w-full bg-primary text-white rounded-xl py-3 text-sm font-black shadow-[4px_4px_0px_0px_#2F3D4A] active:translate-y-[2px]">등록 완료</button>
+                            </motion.form>
+                        )}
                     </div>
-                </header>
 
-                <section className="rounded-3xl border border-border bg-secondary/5 p-6 space-y-5">
-                    <div className="space-y-3 relative group">
-                        <p className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">Track</p>
-                        <div 
-                            ref={trackContainerRef}
-                            className="flex overflow-x-auto flex-nowrap gap-3 scrollbar-hide select-none transition-all"
-                            style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
-                        >
-                            {tracks.map((item) => {
-                                const isActive = item === track;
-                                return (
-                                    <Link
-                                        key={item}
-                                        href={`/admin/course?track=${item}&week=${weekId}`}
-                                        className={`shrink-0 rounded-2xl px-6 py-3 text-sm font-bold transition-colors ${
-                                            isActive
-                                                ? "bg-primary text-primary-foreground"
-                                                : "border border-border text-muted-foreground hover:text-foreground"
-                                        }`}
-                                    >
-                                        {item}
-                                    </Link>
-                                );
-                            })}
+                    {/* Main Content Area: Editor */}
+                    <div className="lg:col-span-3">
+                        <div className="bg-white border-4 border-[#2F3D4A] rounded-[40px] shadow-[12px_12px_0px_0px_#2F3D4A] min-h-[600px] overflow-hidden">
+                            <AdminCourseEditorPanel
+                                key={`${track}-${weekId}`}
+                                track={track}
+                                weekId={weekId}
+                            />
                         </div>
                     </div>
 
-                    <div className="space-y-3 relative group">
-                        <p className="text-xs font-bold uppercase tracking-[0.3em] text-muted-foreground">Week</p>
-                        <div 
-                            ref={weekContainerRef}
-                            className="flex overflow-x-auto flex-nowrap gap-3 scrollbar-hide select-none transition-all"
-                            style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
-                        >
-                            {weeks.map((item) => {
-                                const isActive = item === weekId;
-                                return (
-                                    <Link
-                                        key={item}
-                                        href={`/admin/course?track=${track}&week=${item}`}
-                                        className={`shrink-0 rounded-2xl px-6 py-3 text-sm font-bold transition-colors ${
-                                            isActive
-                                                ? "bg-primary text-primary-foreground"
-                                                : "border border-border text-muted-foreground hover:text-foreground"
-                                        }`}
-                                    >
-                                        {item}주차
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </section>
-
-                <AdminCourseEditorPanel
-                    key={`${track}-${weekId}`}
-                    track={track}
-                    weekId={weekId}
-                />
+                </div>
             </div>
         </div>
     );

@@ -9,9 +9,13 @@ export async function POST(request: Request) {
 
     try {
         const { password } = await request.json();
+        const cookieStore = await cookies();
+        
+        // 브라우저 쿠키에 설정된 개인 관리자 비밀번호 확인
+        const customAdminPass = cookieStore.get("custom_admin_password")?.value;
 
-        if (password === ADMIN_PASSWORD) {
-            const cookieStore = await cookies();
+        // 개인 비밀번호와 시스템 비밀번호 중 하나라도 일치하면 로그인 허용 (유연한 인증)
+        if (password === customAdminPass || password === ADMIN_PASSWORD) {
             cookieStore.set("admin_session", "true", {
                 httpOnly: true,
                 secure: (process.env.NODE_ENV as string) === "production",

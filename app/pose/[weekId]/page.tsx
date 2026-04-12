@@ -3,16 +3,12 @@ import MarkdownContent from "../../../components/MarkdownContent";
 import UploadHomework from "./UploadHomework";
 import PoseSubmissionTrigger from "./PoseSubmissionTrigger";
 import { getCourseContent } from "@/lib/courseContent";
+import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
 export async function generateStaticParams() {
-    return [
-        { weekId: "1" },
-        { weekId: "2" },
-        { weekId: "3" },
-        { weekId: "4" },
-    ];
+    return Array.from({ length: 12 }, (_, i) => ({ weekId: `week${i + 1}` }));
 }
 
 export default async function PoseCoursePage(props: { params: Promise<{ weekId: string }> | { weekId: string } }) {
@@ -21,17 +17,19 @@ export default async function PoseCoursePage(props: { params: Promise<{ weekId: 
     // Extracts the number from "week1", "week2", etc. or handles raw numbers if passed
     const rawWeekId = params.weekId.replace('week', '');
     const poseWeekNum = parseInt(rawWeekId);
-    const isValidWeek = !isNaN(poseWeekNum) && poseWeekNum >= 1 && poseWeekNum <= 4;
+    const isValidWeek = !isNaN(poseWeekNum) && poseWeekNum >= 1;
 
     let content = "";
     let errorLoading = false;
 
     if (!isValidWeek) {
         errorLoading = true;
-        content = `# 유효하지 않은 주차입니다.\n\n정상적인 커리큘럼 범위를 벗어났습니다. (1~4주차만 지원)`;
+        content = `# 유효하지 않은 주차입니다.\n\n정상적인 커리큘럼 범위를 벗어났습니다.`;
     } else {
         try {
-            const result = await getCourseContent("POSE", poseWeekNum);
+            const cookieStore = await cookies();
+            const customUrl = cookieStore.get("custom_gs_url")?.value;
+            const result = await getCourseContent("POSE", poseWeekNum, customUrl);
             content = result.content;
         } catch (err) {
             errorLoading = true;

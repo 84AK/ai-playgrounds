@@ -3,14 +3,10 @@ import MarkdownContent from "../../../components/MarkdownContent";
 import CourseSubmissionTrigger, { SidebarSubmitButton } from "./CourseSubmissionTrigger";
 import UploadHomework from "./UploadHomework";
 import { getCourseContent } from "@/lib/courseContent";
+import { cookies } from "next/headers";
 
 export async function generateStaticParams() {
-    return [
-        { weekId: "week1" },
-        { weekId: "week2" },
-        { weekId: "week3" },
-        { weekId: "week4" },
-    ];
+    return Array.from({ length: 12 }, (_, i) => ({ weekId: `week${i + 1}` }));
 }
 
 export default async function CoursePage(props: { params: Promise<{ weekId: string }> | { weekId: string } }) {
@@ -19,18 +15,20 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
 
     // "week1" -> "1" 추출 로직 추가
     const mbtiWeekNum = parseInt(weekId.replace('week', ''));
-    const isValidWeek = !isNaN(mbtiWeekNum) && mbtiWeekNum >= 1 && mbtiWeekNum <= 4;
+    const isValidWeek = !isNaN(mbtiWeekNum) && mbtiWeekNum >= 1;
 
     let content = "";
     let errorLoading = false;
 
     if (!isValidWeek) {
         errorLoading = true;
-        content = `# 유효하지 않은 주차입니다.\n\n정상적인 커리큘럼 범위를 벗어났습니다. (1~4주차만 지원)`;
+        content = `# 유효하지 않은 주차입니다.\n\n정상적인 커리큘럼 범위를 벗어났습니다.`;
     } else {
         try {
-            // [복구] 서버에서 로컬 파일 + 스프레드시트 통합 조회 (로컬 파일 우선 순위 체크 포함)
-            const result = await getCourseContent("MBTI", mbtiWeekNum);
+            const cookieStore = await cookies();
+            const customUrl = cookieStore.get("custom_gs_url")?.value;
+            // [복구] 서버에서 로컬 파일 + 스프레드시트 통합 조회 (개인 URL 최우선)
+            const result = await getCourseContent("MBTI", mbtiWeekNum, customUrl);
             content = result.content;
         } catch (err) {
             errorLoading = true;

@@ -9,6 +9,10 @@ interface Student {
     grade: string;
     class: string;
     feedback: string;
+    feedbacks?: {
+        mbti: string[];
+        pose: string[];
+    };
 }
 
 export default function AdminFeedbackPage() {
@@ -44,7 +48,43 @@ export default function AdminFeedbackPage() {
         return matchesTab && matchesSearch;
     });
 
-    // [NEW] 정답 코드 자동 로드
+    const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
+
+    // [NEW] 전체 커리큘럼 구조 로드 및 동적 주차 목록 추출
+    useEffect(() => {
+        const fetchStructure = async () => {
+            try {
+                const res = await fetch("/api/course/structure");
+                const result = await res.json();
+                if (result.success && result.data) {
+                    const structure: any[] = result.data;
+                    // 현재 선택된 코스에 해당하는 주차 목록만 추출 (오름차순 정렬)
+                    const weeks = Array.from(new Set(
+                        structure
+                            .filter(s => s.track.toUpperCase() === selectedCourse.toUpperCase())
+                            .map(s => Number(s.week))
+                    )).sort((a, b) => a - b);
+                    
+                    if (weeks.length > 0) {
+                        setAvailableWeeks(weeks);
+                        // 현재 선택된 주차가 목록에 없으면 첫 번째 주차로 변경
+                        if (!weeks.includes(selectedWeek)) {
+                            setSelectedWeek(weeks[0]);
+                        }
+                    } else {
+                        // 등록된 주차가 없으면 기본값 유지
+                        setAvailableWeeks([1, 2, 3, 4, 5, 6, 7, 8]);
+                    }
+                }
+            } catch (err) {
+                console.error("커리큘럼 구조 로드 실패:", err);
+                setAvailableWeeks([1, 2, 3, 4, 5, 6, 7, 8]);
+            }
+        };
+        fetchStructure();
+    }, [selectedCourse]);
+
+    // [NEW] 정답 코드 자동 로드 (selectedWeek 반영)
     useEffect(() => {
         const loadReferenceCode = async () => {
             if (!isAuthorized) return; // 인증되지 않은 경우 호출 안함
@@ -319,7 +359,15 @@ export default function AdminFeedbackPage() {
                                                 <p className="font-black text-lg text-[#2F3D4A]">{s.name}</p>
                                                 <p className="text-sm text-slate-500">{s.grade}학년 {s.class}반</p>
                                             </div>
-                                            {s.feedback && <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-bold">피드백 있음</span>}
+                                            {(() => {
+                                                const weekIdx = selectedWeek - 1;
+                                                const hasFeedback = selectedCourse === "MBTI" 
+                                                    ? !!s.feedbacks?.mbti?.[weekIdx]
+                                                    : !!s.feedbacks?.pose?.[weekIdx];
+                                                return hasFeedback ? (
+                                                    <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-bold">피드백 있음</span>
+                                                ) : null;
+                                            })()}
                                         </div>
                                     </div>
                                 ))
@@ -362,7 +410,7 @@ export default function AdminFeedbackPage() {
                                                 onChange={(e) => setSelectedWeek(Number(e.target.value))}
                                                 className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-primary font-bold appearance-none cursor-pointer"
                                             >
-                                                {[1, 2, 3, 4].map(w => (
+                                                {availableWeeks.map(w => (
                                                     <option key={w} value={w}>{selectedCourse === 'MBTI' ? 'MBTI ' : 'POSE '} {w}주차 과제</option>
                                                 ))}
                                             </select>
