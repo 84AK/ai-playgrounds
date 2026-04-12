@@ -4,12 +4,9 @@ import UploadHomework from "./UploadHomework";
 import PoseSubmissionTrigger from "./PoseSubmissionTrigger";
 import { getCourseContent } from "@/lib/courseContent";
 import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
-
-export async function generateStaticParams() {
-    return Array.from({ length: 12 }, (_, i) => ({ weekId: `week${i + 1}` }));
-}
 
 export default async function PoseCoursePage(props: { params: Promise<{ weekId: string }> | { weekId: string } }) {
     // Resolve params for Next 15 compatibility

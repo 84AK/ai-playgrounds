@@ -4,10 +4,9 @@ import CourseSubmissionTrigger, { SidebarSubmitButton } from "./CourseSubmission
 import UploadHomework from "./UploadHomework";
 import { getCourseContent } from "@/lib/courseContent";
 import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 
-export async function generateStaticParams() {
-    return Array.from({ length: 12 }, (_, i) => ({ weekId: `week${i + 1}` }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function CoursePage(props: { params: Promise<{ weekId: string }> | { weekId: string } }) {
     const params = await (props.params instanceof Promise ? props.params : Promise.resolve(props.params));

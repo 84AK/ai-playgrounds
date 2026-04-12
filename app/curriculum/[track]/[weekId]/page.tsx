@@ -6,6 +6,8 @@ import { notFound } from "next/navigation";
 import CourseSubmissionTrigger from "@/components/course/CourseSubmissionTrigger";
 import UploadHomework from "@/components/course/UploadHomework";
 
+export const dynamic = "force-dynamic";
+
 export default async function UniversalCoursePage(props: { params: Promise<{ track: string; weekId: string }> }) {
     const params = await props.params;
     const { track, weekId } = params;
