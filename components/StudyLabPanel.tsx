@@ -140,7 +140,12 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
                 {tab}
               </button>
             ))}
-            {tabs.length === 0 && !isLoading && <p className="text-[10px] p-2 text-muted-foreground">등록된 코스가 없습니다.</p>}
+            {tabs.length === 0 && !isLoading && (
+               <div className="flex flex-col items-center p-3 text-center">
+                 <p className="text-[11px] font-bold text-amber-600 mb-1">⚠️ 연결된 수업 정보가 없습니다.</p>
+                 <p className="text-[9px] text-slate-500">관리자 셋업 페이지의 **매직 링크**로 접속하여 환경을 먼저 연동해 주세요.</p>
+               </div>
+            )}
           </div>
 
           <div className="space-y-2 max-h-[220px] overflow-y-auto pr-2 custom-scrollbar flex-1">
