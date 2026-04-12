@@ -32,18 +32,46 @@ function extractFromResponse(result: any, key: string): any {
 
 export async function getCourseStructure(customUrl?: string): Promise<CourseStructureItem[]> {
   const targetUrl = customUrl || APPS_SCRIPT_URL;
+  const isCustom = !!customUrl;
+  
   if (!targetUrl) return [];
   
+  // 기본 트랙 정의 (폴백용)
+  const defaultItems: CourseStructureItem[] = [
+    ...Array.from({ length: 12 }, (_, i) => ({ track: "MBTI", week: i + 1, title: `${i + 1}차시` })),
+    ...Array.from({ length: 12 }, (_, i) => ({ track: "POSE", week: i + 1, title: `${i + 1}차시` }))
+  ];
+
   try {
     const gasUrl = new URL(targetUrl);
     gasUrl.searchParams.set("action", "getAllCourseStructure");
-    const res = await fetch(gasUrl.toString(), { cache: "no-store", redirect: "follow" });
-    if (!res.ok) return [];
+    
+    // 타임아웃 5초 설정 (기존 학생들을 위해 피드백 속도 중요)
+    const res = await fetch(gasUrl.toString(), { 
+        cache: "no-store", 
+        redirect: "follow",
+        signal: AbortSignal.timeout(5000) 
+    });
+    
+    if (!res.ok) {
+        // 시트 호출 실패 시, 커스텀 모드가 아니면 기본값 반환
+        return isCustom ? [] : defaultItems;
+    }
+    
     const result = await res.json();
-    return extractFromResponse(result, "data") || [];
+    const fetchedData = extractFromResponse(result, "data");
+    
+    // 데이터가 있고 배열이면 결과 반환
+    if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
+        return fetchedData;
+    }
+    
+    // 데이터가 비어있다면, 커스텀 모드면 빈 배열, 기본 모드면 폴백 반환
+    return isCustom ? [] : defaultItems;
   } catch (err) {
     console.error("Failed to fetch course structure", err);
-    return [];
+    // 에러 발생 시 커스텀 모드가 아니면 기본 MBTI/POSE 반환 (기존 학생 보호)
+    return isCustom ? [] : defaultItems;
   }
 }
 
