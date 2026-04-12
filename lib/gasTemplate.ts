@@ -21,6 +21,21 @@ function getKoreanTime() {
   return Utilities.formatDate(new Date(utc + (9 * 60 * 60000)), "GMT+09:00", "yyyy-MM-dd HH:mm:ss");
 }
 
+/* [NEW] 지능형 헤더 맵핑 엔진 (V7.8.2) */
+function getHeaderMap(sheet) {
+  if (!sheet) return {};
+  const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 1)).getValues()[0];
+  const map = {};
+  headers.forEach((h, i) => {
+    const head = h.toString().toLowerCase().trim();
+    if (head.includes("트랙") || head.includes("track")) map.track = i;
+    else if (head.includes("주차") || head.includes("week")) map.week = i;
+    else if (head.includes("제목") || head.includes("title")) map.title = i;
+    else if (head.includes("내용") || head.includes("content")) map.content = i;
+  });
+  return map;
+}
+
 /* [CORE] 지능형 레이아웃 엔진 */
 function getSheetLayout(sheetName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -220,13 +235,56 @@ function doGet(e) {
       const s = ss.getSheetByName(SHEET_COURSE_CONTENTS);
       if(!s) return createJSONResponse({ status:"success", data:[] });
       const rows = s.getDataRange().getDisplayValues();
-      let data = []; for (let i=1; i<rows.length; i++) data.push({ track: rows[i][0], week: parseInt(rows[i][1]), title: rows[i][2] });
+      const map = getHeaderMap(s);
+      
+      // 기본 인덱스 설정 (헤더 감지 실패 시 폴백)
+      const idx = {
+        track: map.track ?? 0,
+        week: map.week ?? 1,
+        title: map.title ?? 2
+      };
+
+      let data = []; 
+      for (let i=1; i<rows.length; i++) {
+        const tr = rows[i][idx.track]?.toString().trim() || "";
+        if (!tr) continue; // 트랙명이 없으면 건너뜀
+        data.push({ 
+          track: tr, 
+          week: parseInt(rows[i][idx.week]) || 0, 
+          title: rows[i][idx.title] || "" 
+        });
+      }
       return createJSONResponse({ status: "success", data: data });
     }
 
     if (action === 'getCourseContent') {
-      const rows = ss.getSheetByName(SHEET_COURSE_CONTENTS).getDataRange().getValues();
-      for (let i=1; i<rows.length; i++) if(rows[i][0] == e.parameter.track && rows[i][1] == e.parameter.week) return createJSONResponse({ status:"success", title:rows[i][2], content:rows[i][3] });
+      const s = ss.getSheetByName(SHEET_COURSE_CONTENTS);
+      if(!s) return createJSONResponse({ error: "Sheet Not Found" });
+      const rows = s.getValues(); // Markdown의 경우 DisplayValues보다 원본 Values가 안전함
+      const map = getHeaderMap(s);
+      
+      const idx = {
+        track: map.track ?? 0,
+        week: map.week ?? 1,
+        title: map.title ?? 2,
+        content: map.content ?? 3
+      };
+
+      const targetTrack = (e.parameter.track || "").toLowerCase().trim();
+      const targetWeek = parseInt(e.parameter.week);
+
+      for (let i=1; i<rows.length; i++) {
+        const rowTrack = (rows[i][idx.track] || "").toString().toLowerCase().trim();
+        const rowWeek = parseInt(rows[i][idx.week]);
+        
+        if(rowTrack === targetTrack && rowWeek === targetWeek) {
+          return createJSONResponse({ 
+            status: "success", 
+            title: rows[i][idx.title] || "", 
+            content: rows[i][idx.content] || "" 
+          });
+        }
+      }
       return createJSONResponse({ error: "Not Found" });
     }
 

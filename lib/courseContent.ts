@@ -46,15 +46,15 @@ export async function getCourseStructure(customUrl?: string): Promise<CourseStru
     const gasUrl = new URL(targetUrl);
     gasUrl.searchParams.set("action", "getAllCourseStructure");
     
-    // 타임아웃 5초 설정 (기존 학생들을 위해 피드백 속도 중요)
+    // 타임아웃 15초로 확장 (GAS의 지연 응답 대비)
     const res = await fetch(gasUrl.toString(), { 
         cache: "no-store", 
         redirect: "follow",
-        signal: AbortSignal.timeout(5000) 
+        signal: AbortSignal.timeout(15000) 
     });
     
     if (!res.ok) {
-        // 시트 호출 실패 시, 커스텀 모드가 아니면 기본값 반환
+        // 시트 호출 실패 시, 커스틈 모드가 아니면 기본값 반환
         return isCustom ? [] : defaultItems;
     }
     
@@ -63,7 +63,11 @@ export async function getCourseStructure(customUrl?: string): Promise<CourseStru
     
     // 데이터가 있고 배열이면 결과 반환
     if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
-        return fetchedData;
+        // [V7.8.2] 가져온 데이터의 트랙 대문자화 (일관성 유지)
+        return fetchedData.map(item => ({
+            ...item,
+            track: item.track?.toString().toUpperCase().trim()
+        }));
     }
     
     // 데이터가 비어있다면, 커스텀 모드면 빈 배열, 기본 모드면 폴백 반환
@@ -91,10 +95,15 @@ export async function getCourseContent(track: CourseTrack, weekId: number, custo
   try {
     const gasUrl = new URL(targetUrl);
     gasUrl.searchParams.set("action", "getCourseContent");
-    gasUrl.searchParams.set("track", track);
+    gasUrl.searchParams.set("track", track.toUpperCase()); // 대문자로 표준화하여 요청
     gasUrl.searchParams.set("week", weekId.toString());
 
-    const res = await fetch(gasUrl.toString(), { cache: "no-store", redirect: "follow" });
+    // 상세 페이지는 사용자가 기다리는 중이므로 타임아웃 20초 부여
+    const res = await fetch(gasUrl.toString(), { 
+      cache: "no-store", 
+      redirect: "follow",
+      signal: AbortSignal.timeout(20000)
+    });
     if (!res.ok) throw new Error(`Apps Script responded with ${res.status}`);
 
     const result = await res.json();
@@ -105,7 +114,7 @@ export async function getCourseContent(track: CourseTrack, weekId: number, custo
       return { content, title, source: "sheet" as const };
     }
     
-    // 이부분이 중요: 커스텀 URL 사용 시 로컬 파일로 폴백하지 않음 (선생님의 빈 시트 반영)
+    // 커스텀 URL 사용 시 로컬 파일로 폴백하지 않음 (선생님의 빈 시트 반영)
     if (isCustom) {
       return { content: "", title: "", source: "sheet" as const };
     }
