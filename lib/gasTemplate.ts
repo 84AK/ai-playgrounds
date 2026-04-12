@@ -303,12 +303,25 @@ function doGet(e) {
     if (action === 'getRankingData') {
       const layout = getSheetLayout(SHEET_PROGRESS);
       const pRows = ss.getSheetByName(SHEET_PROGRESS).getDataRange().getValues();
-      const uRows = ss.getSheetByName(SHEET_USERS).getDataRange().getDisplayValues();
+      const uSheet = ss.getSheetByName(SHEET_USERS);
+      const uRows = uSheet ? uSheet.getDataRange().getDisplayValues() : [];
       let ranks = [];
+      
       for(let i=1; i<pRows.length; i++) {
-        let count = 0; for(let j=1; j<=layout.maxWeeks; j++) if(pRows[i][j] === true || pRows[i][j] === "TRUE") count++;
-        let uInfo = uRows.find(r => r[0] == pRows[i][0]);
-        ranks.push({ name: pRows[i][0], class: uInfo ? uInfo[6] : "기타", submissions: count });
+        let count = 0; 
+        for(let j=1; j<=layout.maxWeeks; j++) {
+          const val = pRows[i][j];
+          if(val === true || val === "TRUE" || val === "true") count++;
+        }
+        
+        let uInfo = uRows.find(r => r[0].toString().trim() == pRows[i][0].toString().trim());
+        ranks.push({ 
+          name: pRows[i][0], 
+          grade: uInfo ? uInfo[5] : "",
+          classGroup: uInfo ? uInfo[6] : "기타", 
+          points: count * 10, // 1건당 10점 기준
+          avatar: uInfo ? uInfo[3] : "👤"
+        });
       }
       return createJSONResponse({ status:"success", data: ranks });
     }
