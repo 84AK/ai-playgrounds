@@ -5,6 +5,8 @@ import GlobalAuthGuard from "@/components/GlobalAuthGuard";
 import LayoutClientWrapper from "@/components/LayoutClientWrapper";
 import FeedbackOverlay from "@/components/FeedbackOverlay";
 
+export const dynamic = "force-dynamic";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
