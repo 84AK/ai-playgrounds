@@ -315,12 +315,20 @@ function doGet(e) {
         }
         
         let uInfo = uRows.find(r => r[0].toString().trim() == pRows[i][0].toString().trim());
+        
+        let progressArr = [];
+        for(let j=1; j<=layout.maxWeeks; j++) {
+          const val = pRows[i][j];
+          progressArr.push(val === true || val === "TRUE" || val === "true");
+        }
+
         ranks.push({ 
           name: pRows[i][0], 
           grade: uInfo ? uInfo[5] : "",
           classGroup: uInfo ? uInfo[6] : "기타", 
           points: count * 10, // 1건당 10점 기준
-          avatar: uInfo ? uInfo[3] : "👤"
+          avatar: uInfo ? uInfo[3] : "👤",
+          progress: progressArr
         });
       }
       return createJSONResponse({ status:"success", data: ranks });

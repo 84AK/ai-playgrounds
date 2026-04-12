@@ -23,7 +23,8 @@ export async function fetchRankingData(): Promise<StudentRanking[]> {
         );
         
         if (res.status === "success" && Array.isArray(res.data)) {
-            return res.data;
+            // 점수 내림차순 정렬 (높은 점수가 위로!)
+            return [...res.data].sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0));
         }
     } catch (err) {
         console.error("Failed to fetch ranking data:", err);
