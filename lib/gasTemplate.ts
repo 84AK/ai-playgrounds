@@ -302,31 +302,29 @@ function doGet(e) {
 
     if (action === 'getRankingData') {
       const layout = getSheetLayout(SHEET_PROGRESS);
-      const pRows = ss.getSheetByName(SHEET_PROGRESS).getDataRange().getValues();
+      const pSheet = ss.getSheetByName(SHEET_PROGRESS);
+      if(!pSheet) return createJSONResponse({ error: "Progress Sheet Not Found" });
+      const pRows = pSheet.getDataRange().getValues();
       const uSheet = ss.getSheetByName(SHEET_USERS);
       const uRows = uSheet ? uSheet.getDataRange().getDisplayValues() : [];
       let ranks = [];
       
       for(let i=1; i<pRows.length; i++) {
         let count = 0; 
-        for(let j=1; j<=layout.maxWeeks; j++) {
-          const val = pRows[i][j];
-          if(val === true || val === "TRUE" || val === "true") count++;
-        }
-        
-        let uInfo = uRows.find(r => r[0].toString().trim() == pRows[i][0].toString().trim());
-        
         let progressArr = [];
         for(let j=1; j<=layout.maxWeeks; j++) {
           const val = pRows[i][j];
-          progressArr.push(val === true || val === "TRUE" || val === "true");
+          const submitted = (val === true || val === "TRUE" || val === "true");
+          if(submitted) count++;
+          progressArr.push(submitted);
         }
-
+        
+        let uInfo = uRows.find(r => r[0].toString().trim() == pRows[i][0].toString().trim());
         ranks.push({ 
           name: pRows[i][0], 
           grade: uInfo ? uInfo[5] : "",
           classGroup: uInfo ? uInfo[6] : "기타", 
-          points: count * 10, // 1건당 10점 기준
+          points: count * 10,
           avatar: uInfo ? uInfo[3] : "👤",
           progress: progressArr
         });
@@ -335,13 +333,46 @@ function doGet(e) {
     }
 
     if (action === 'getStudentList') {
-        const layout = getSheetLayout(SHEET_USERS);
-        const rows = ss.getSheetByName(SHEET_USERS).getDataRange().getDisplayValues();
+        const uSheet = ss.getSheetByName(SHEET_USERS);
+        if(!uSheet) return createJSONResponse({ error: "Users Sheet Not Found" });
+        const uRows = uSheet.getDataRange().getDisplayValues();
+        
+        const pSheet = ss.getSheetByName(SHEET_PROGRESS);
+        const pRows = pSheet ? pSheet.getDataRange().getValues() : [];
+        const layoutP = getSheetLayout(SHEET_PROGRESS);
+
         let list = [];
-        for (let i=1; i<rows.length; i++) {
+        for (let i=1; i<uRows.length; i++) {
+          const name = uRows[i][0].toString().trim();
+          if(!name) continue;
+
+          // 진도 데이터 병합 (V7.8.5 핵심 복구 기능)
+          let progressArr = Array(12).fill(false);
+          if (pRows.length > 0) {
+            let pRow = pRows.find(r => r[0].toString().trim() === name);
+            if (pRow) {
+              for(let j=1; j<=layoutP.maxWeeks; j++) {
+                progressArr[j-1] = (pRow[j] === true || pRow[j] === "TRUE" || pRow[j] === "true");
+              }
+            }
+          }
+
           let mf = [], pf = [];
-          for(let k=1; k<=layout.fbOffset; k++) { mf.push(rows[i][6+k]); pf.push(rows[i][6+layout.fbOffset+k]); }
-          list.push({ name: rows[i][0], school: rows[i][1], grade: rows[i][5], class: rows[i][6], feedbacks: { mbti: mf, pose: pf } });
+          // 피드백 인덱스 유동적 감지 (HeaderMap 기반 가능하나 기존 오프셋 일단 유지)
+          const fbOffset = getSheetLayout(SHEET_USERS).fbOffset;
+          for(let k=1; k<=fbOffset; k++) {
+            mf.push(uRows[i][6+k] || "");
+            pf.push(uRows[i][6+fbOffset+k] || "");
+          }
+
+          list.push({ 
+            name: name, 
+            school: uRows[i][1], 
+            grade: uRows[i][5], 
+            class: uRows[i][6], 
+            feedbacks: { mbti: mf, pose: pf },
+            progress: progressArr 
+          });
         }
         return createJSONResponse({ status: "success", data: list });
     }

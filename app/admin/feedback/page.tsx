@@ -13,6 +13,7 @@ interface Student {
         mbti: string[];
         pose: string[];
     };
+    progress?: boolean[];
 }
 
 export default function AdminFeedbackPage() {
@@ -357,17 +358,37 @@ export default function AdminFeedbackPage() {
                                         <div className="flex justify-between items-center">
                                             <div>
                                                 <p className="font-black text-lg text-[#2F3D4A]">{s.name}</p>
-                                                <p className="text-sm text-slate-500">{s.grade}학년 {s.class}반</p>
+                                                <p className="text-sm text-slate-500 mb-2">{s.grade}학년 {s.class}반</p>
+                                                
+                                                {/* [복구] 차시별 제출 현황 미니 도트 */}
+                                                <div className="flex gap-1 flex-wrap">
+                                                    {(s.progress || Array(12).fill(false)).map((submitted, i) => (
+                                                        <div 
+                                                            key={i}
+                                                            className={`w-2.5 h-2.5 rounded-sm border ${
+                                                                submitted 
+                                                                ? 'bg-primary border-primary shadow-[1px_1px_0px_0px_rgba(0,0,0,0.1)]' 
+                                                                : 'bg-slate-100 border-slate-200'
+                                                            }`}
+                                                            title={`${i+1}주차: ${submitted ? '제출' : '미제출'}`}
+                                                        />
+                                                    ))}
+                                                </div>
                                             </div>
-                                            {(() => {
-                                                const weekIdx = selectedWeek - 1;
-                                                const hasFeedback = selectedCourse === "MBTI" 
-                                                    ? !!s.feedbacks?.mbti?.[weekIdx]
-                                                    : !!s.feedbacks?.pose?.[weekIdx];
-                                                return hasFeedback ? (
-                                                    <span className="text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-bold">피드백 있음</span>
-                                                ) : null;
-                                            })()}
+                                            <div className="flex flex-col items-end gap-2">
+                                                {(() => {
+                                                    const weekIdx = selectedWeek - 1;
+                                                    const hasFeedback = selectedCourse === "MBTI" 
+                                                        ? !!s.feedbacks?.mbti?.[weekIdx]
+                                                        : !!s.feedbacks?.pose?.[weekIdx];
+                                                    return hasFeedback ? (
+                                                        <span className="text-[10px] bg-green-100 text-green-600 px-2 py-0.5 rounded-full font-bold">피드백 완료</span>
+                                                    ) : null;
+                                                })()}
+                                                <span className="text-[10px] font-black text-slate-300">
+                                                    {(s.progress || []).filter(p => p).length}/12
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 ))
