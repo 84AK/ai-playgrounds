@@ -7,6 +7,8 @@ export interface StudentRanking {
     classGroup: string;
     points: number;
     progress: boolean[];
+    mbtiProgress?: boolean[];
+    poseProgress?: boolean[];
 }
 
 export interface ClassRanking {
@@ -23,8 +25,14 @@ export async function fetchRankingData(): Promise<StudentRanking[]> {
         );
         
         if (res.status === "success" && Array.isArray(res.data)) {
-            // [V7.8.5] 점수 내림차순 정렬 (높은 점수가 무조건 위로!)
-            return [...res.data].sort((a, b) => {
+            // [V8.3] GAS V5.2 대응: mbtiProgress + poseProgress 병합 처리
+            const mappedData = res.data.map((item: any) => ({
+                ...item,
+                progress: item.progress || [...(item.mbtiProgress || []), ...(item.poseProgress || [])]
+            }));
+
+            // 점수 내림차순 정렬
+            return mappedData.sort((a, b) => {
                 const pA = Number(a.points) || 0;
                 const pB = Number(b.points) || 0;
                 return pB - pA;

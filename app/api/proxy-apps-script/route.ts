@@ -23,6 +23,7 @@ export async function GET(request: Request) {
     const customUrl = cookieStore.get('custom_gs_url')?.value;
     const customAdminPass = cookieStore.get('custom_admin_password')?.value;
     
+    const isCustom = !!customUrl;
     const targetUrl = customUrl || DEFAULT_APPS_SCRIPT_URL;
     const targetAdminPass = customAdminPass || ADMIN_PASSWORD;
 
@@ -42,7 +43,9 @@ export async function GET(request: Request) {
     const gasUrl = new URL(targetUrl);
     searchParams.forEach((value, key) => gasUrl.searchParams.set(key, value));
 
-    console.log(`📡 [Proxy-GET] Fetching: ${gasUrl.toString().substring(0, 100)}...`);
+    // [V8.3] 로깅 개선: URL 출처 표시 및 더 긴 주소 출력 (전체 확인 용이)
+    console.log(`📡 [Proxy-GET] Source: ${isCustom ? "CUSTOM (Cookie)" : "SYSTEM (Env)"}`);
+    console.log(`📡 [Proxy-GET] URL: ${gasUrl.toString().length > 120 ? gasUrl.toString().substring(0, 100) + "..." + gasUrl.toString().slice(-15) : gasUrl.toString()}`);
 
     const response = await fetch(gasUrl.toString(), {
       cache: 'no-store',
@@ -96,6 +99,7 @@ export async function POST(request: Request) {
     const customUrl = cookieStore.get('custom_gs_url')?.value;
     const customAdminPass = cookieStore.get('custom_admin_password')?.value;
     
+    const isCustom = !!customUrl;
     const targetUrl = customUrl || DEFAULT_APPS_SCRIPT_URL;
     const targetAdminPass = customAdminPass || ADMIN_PASSWORD;
 
@@ -111,7 +115,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Apps Script URL가 설정되지 않았습니다.' }, { status: 500 });
     }
 
-    console.log(`📡 [Proxy-POST] Action: ${action}, URL: ${targetUrl.substring(0, 50)}...`);
+    console.log(`📡 [Proxy-POST] Source: ${isCustom ? "CUSTOM (Cookie)" : "SYSTEM (Env)"}`);
+    console.log(`📡 [Proxy-POST] Action: ${action}, URL: ${targetUrl.length > 50 ? targetUrl.substring(0, 50) + "..." + targetUrl.slice(-10) : targetUrl}`);
 
     // 2. Apps Script 호출 (POST)
     const response = await fetch(targetUrl, {

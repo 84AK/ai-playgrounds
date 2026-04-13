@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 import MarkdownToolbar from "@/components/MarkdownToolbar";
+import useBackendStatus from "@/hooks/useBackendStatus";
 
 interface AdminCourseEditorPanelProps {
     track: string;
@@ -22,6 +23,7 @@ export default function AdminCourseEditorPanel({
     const [isSaving, setIsSaving] = useState(false);
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
+    const { getTrackName } = useBackendStatus();
     
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const cacheKey = `${track}-${weekId}`;
@@ -129,7 +131,7 @@ export default function AdminCourseEditorPanel({
                 <div className="rounded-3xl border border-border bg-background/60 backdrop-blur-xl p-6 shadow-xl shadow-primary/5 transition-all">
                     <div className="mb-6">
                         <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-primary/60">Content Editor</p>
-                        <h2 className="mt-1 text-2xl font-black tracking-tight">{track} <span className="text-primary">{weekId}주차</span></h2>
+                        <h2 className="mt-1 text-2xl font-black tracking-tight">{getTrackName(track)} <span className="text-primary">{weekId}주차</span></h2>
                     </div>
 
                     <div className="space-y-4">

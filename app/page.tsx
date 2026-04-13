@@ -7,10 +7,12 @@ import { useState } from "react";
 import useLocalProfile from "@/hooks/useLocalProfile";
 import StudyLabPanel from "@/components/StudyLabPanel";
 import ShowcaseCarousel from "@/components/ShowcaseCarousel";
+import useBackendStatus from "@/hooks/useBackendStatus";
 
 export default function Home() {
   const profile = useLocalProfile();
   const [isHighlighted, setIsHighlighted] = useState(false);
+  const { getTrackName } = useBackendStatus();
 
   const scrollToStudyLab = () => {
     const el = document.getElementById("my-study-lab");
@@ -83,7 +85,7 @@ export default function Home() {
                   <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center text-white text-xl font-black border-2 border-[#2F3D4A] shadow-[3px_3px_0px_0px_#2F3D4A]">01</div>
                   <div>
                     <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none">Phase 01</span>
-                    <h3 className="text-3xl font-black tracking-tighter text-[#2F3D4A]">나만의 MBTI 메이커</h3>
+                    <h3 className="text-3xl font-black tracking-tighter text-[#2F3D4A]">{getTrackName("MBTI")}</h3>
                   </div>
                 </div>
                 <p className="text-base text-slate-600 leading-relaxed font-bold">
@@ -118,7 +120,7 @@ export default function Home() {
                   <div className="w-12 h-12 rounded-2xl bg-sky-500 flex items-center justify-center text-white text-xl font-black border-2 border-[#2F3D4A] shadow-[3px_3px_0px_0px_#2F3D4A]">02</div>
                   <div>
                     <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest leading-none">Phase 02</span>
-                    <h3 className="text-3xl font-black tracking-tighter text-[#2F3D4A]">AI 포즈 게임 메이커</h3>
+                    <h3 className="text-3xl font-black tracking-tighter text-[#2F3D4A]">{getTrackName("POSE")}</h3>
                   </div>
                 </div>
                 <p className="text-base text-slate-600 leading-relaxed font-bold">

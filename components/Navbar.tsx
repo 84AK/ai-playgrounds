@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import UserSettingsModal from "./UserSettingsModal";
 import useLocalProfile from "@/hooks/useLocalProfile";
+import useBackendStatus from "@/hooks/useBackendStatus";
+import { motion, AnimatePresence } from "framer-motion";
 
 const navItems = [
   { name: "🏠 홈", path: "/" },
@@ -18,6 +20,7 @@ const navItems = [
 export default function Navbar() {
   const pathname = usePathname();
   const profile = useLocalProfile();
+  const { isCustom, teacherName } = useBackendStatus();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
@@ -58,6 +61,24 @@ export default function Navbar() {
 
           {/* Right Action Section */}
           <div className="flex items-center gap-3 shrink-0">
+            {/* [NEW] External Lab Badge */}
+            <AnimatePresence>
+              {isMounted && isCustom && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20, scale: 0.8 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-full group cursor-default"
+                  title={`${teacherName || "개인"} 연구소 활동 중`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="text-[10px] font-black text-amber-600 tracking-tight">
+                    {teacherName ? `${teacherName} 연구소` : "개인 연구소"}
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* User Profile / Login */}
             {isMounted && profile ? (
               <Link

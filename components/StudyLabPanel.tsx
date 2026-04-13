@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { getAppsScriptJson } from "@/lib/appsScriptClient";
 import useLocalProfile from "@/hooks/useLocalProfile";
-import { fetchAndCacheProgress, getCachedProgress, isCacheStale } from "@/lib/progressSync";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import useSWR from "@/hooks/useSWR";
+import useBackendStatus from "@/hooks/useBackendStatus";
 
 interface StudyLabPanelProps {
   highlighted?: boolean;
@@ -21,22 +22,35 @@ interface CourseStructureItem {
 export default function StudyLabPanel({ highlighted = false, className = "" }: StudyLabPanelProps) {
   const router = useRouter();
   const profile = useLocalProfile();
+  const { getTrackName } = useBackendStatus();
   
   const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [structure, setStructure] = useState<CourseStructureItem[]>([]);
-  const [progress, setProgress] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<string>("MBTI");
-  const [detailedStatus, setDetailedStatus] = useState<Record<string, { status: string, fileName: string }>>({});
 
-  const applyProgressData = (data: any, detailed: any = {}) => {
-    const pMap: Record<string, boolean> = {};
-    for (let i = 1; i <= 12; i++) {
-      pMap[`week${i}`] = !!data[`week${i}`];
-    }
-    setProgress(pMap);
-    setDetailedStatus(detailed || {});
-  };
+  // [V8.6] useSWR을 통한 실시간 진도 데이터 관리
+  const fetcher = useCallback(async () => {
+    if (!profile?.name) return null;
+    const res = await getAppsScriptJson<any>(new URLSearchParams({
+      action: "getProgress",
+      user_id: profile.name
+    }));
+    if (res.status === "success") return res;
+    throw new Error("Failed to fetch progress");
+  }, [profile?.name]);
+
+  const { 
+    data: rawProgress, 
+    isValidating: isLoadingProgress, 
+    mutate: fetchUserProgress 
+  } = useSWR<any>(
+    profile?.name ? `progress_${profile.name}` : null,
+    fetcher,
+    { revalidateOnFocus: true }
+  );
+
+  const [progress, setProgress] = useState<Record<string, boolean>>({});
+  const [detailedStatus, setDetailedStatus] = useState<Record<string, { status: string, fileName: string }>>({});
 
   useEffect(() => {
     const fetchStructure = async () => {
@@ -56,29 +70,19 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
     fetchStructure();
   }, []);
 
-  // [NEW] 컴포넌트가 열리거나 이름이 로드되면 자동으로 진도 새로고침
+  // [NEW] 데이터가 들어오면 상태 매핑
   useEffect(() => {
-    if (profile?.name) {
-      fetchUserProgress(profile.name);
-    }
-  }, [profile?.name]);
-
-  const fetchUserProgress = async (userName: string) => {
-    setIsLoadingProgress(true);
-    try {
-      const res = await getAppsScriptJson<any>(new URLSearchParams({
-        action: "getProgress",
-        user_id: userName
-      }));
-      if (res.status === "success") {
-        applyProgressData(res.data, res.detailed);
+    if (rawProgress) {
+      const data = rawProgress.data || {};
+      const detailed = rawProgress.detailed || {};
+      const pMap: Record<string, boolean> = {};
+      for (let i = 1; i <= 12; i++) {
+        pMap[`week${i}`] = !!data[`week${i}`];
       }
-    } catch (err) {
-      console.error("Failed to fetch progress", err);
-    } finally {
-      setIsLoadingProgress(false);
+      setProgress(pMap);
+      setDetailedStatus(detailed);
     }
-  };
+  }, [rawProgress]);
 
   const navigateToCourse = (track: string, week: number) => {
     if (!profile) return;
@@ -104,7 +108,7 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
 
   return (
     <>
-      <LoadingOverlay isVisible={isLoadingProgress} message={`${profile?.name || "연구원"}님의 진도 데이터를 동기화하고 있습니다...`} />
+      {/* 백그라운드 업데이트 시 전체 화면 로딩 대신 진행 바에 표시 (유저 사용성 증대) */}
       <div
         id="my-study-lab"
         className={`bento-item min-h-[380px] flex flex-col relative overflow-hidden transition-all duration-500 bg-white ${highlighted ? "ring-4 ring-primary ring-offset-4 ring-offset-background scale-[1.02]" : ""
@@ -137,7 +141,7 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
                 onClick={() => setActiveTab(tab)}
                 className={`flex-1 min-w-[100px] py-2 text-xs font-black rounded-lg transition-all ${activeTab === tab ? "bg-primary text-white border border-[#2F3D4A] shadow-sm" : "text-slate-600 hover:text-primary"}`}
               >
-                {tab}
+                {getTrackName(tab)}
               </button>
             ))}
             {tabs.length === 0 && !isLoading && (
@@ -189,9 +193,9 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
           <div className="relative z-10 space-y-2 pt-3 border-t-2 border-[#2F3D4A] shrink-0">
             <div className="flex justify-between items-end text-[10px] font-black tracking-wider uppercase text-slate-500">
               <div className="flex items-center gap-1">
-                <span>{activeTab} Progress</span>
+                <span>{getTrackName(activeTab)} Progress</span>
                 <button
-                  onClick={() => profile?.name && fetchUserProgress(profile.name)}
+                  onClick={() => profile?.name && fetchUserProgress()}
                   disabled={isLoadingProgress}
                   className="flex items-center gap-1 text-primary hover:text-primary/70 disabled:opacity-50 transition-colors ml-1"
                   title="진도 즉시 동기화"

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getCourseContent, type CourseTrack } from "@/lib/courseContent";
+import { decrypt } from "@/lib/crypto";
 
 export async function GET(request: Request) {
     try {
@@ -19,7 +20,17 @@ export async function GET(request: Request) {
         }
 
         const customUrl = cookieStore.get("custom_gs_url")?.value;
-        const result = await getCourseContent(resolvedTrack, weekId, customUrl);
+        const notionEncryptedKey = cookieStore.get("custom_notion_key")?.value;
+        const notionDbId = cookieStore.get("custom_notion_db_id")?.value;
+        const notionPriority = cookieStore.get("custom_notion_priority")?.value as "notion" | "sheet" | undefined;
+
+        const notionConfig = notionEncryptedKey && notionDbId ? {
+            apiKey: decrypt(notionEncryptedKey),
+            databaseId: notionDbId,
+            priority: notionPriority || "sheet"
+        } : undefined;
+
+        const result = await getCourseContent(resolvedTrack, weekId, customUrl, notionConfig);
         return NextResponse.json({ 
             success: true, 
             content: result.content,

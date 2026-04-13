@@ -6,25 +6,28 @@ import { RankingCard } from "@/components/RankingCard";
 import { ClassLeaderboard } from "@/components/ClassLeaderboard";
 import { motion, AnimatePresence } from "framer-motion";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import useSWR from "@/hooks/useSWR";
 
 export default function RankingPage() {
-    const [students, setStudents] = useState<StudentRanking[]>([]);
+    const { data: students = [], isValidating, mutate } = useSWR<StudentRanking[]>("ranking_data", fetchRankingData);
     const [classRankings, setClassRankings] = useState<ClassRanking[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<"individual" | "class">("individual");
     const [selectedClass, setSelectedClass] = useState("전체");
-
-    const loadData = async () => {
-        setIsLoading(true);
-        const data = await fetchRankingData();
-        setStudents(data);
-        setClassRankings(calculateClassRankings(data));
-        setIsLoading(false);
-    };
+    const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
-        loadData();
+        setIsMounted(true);
     }, []);
+
+    useEffect(() => {
+        if (students && students.length > 0) {
+            setClassRankings(calculateClassRankings(students));
+        }
+    }, [students]);
+
+    const loadData = () => {
+        mutate();
+    };
 
     const formatClassGroup = (s: StudentRanking) => {
         if (!s.grade || !s.classGroup || s.grade.toString().trim() === "" || s.classGroup.toString().trim() === "") {
@@ -33,19 +36,20 @@ export default function RankingPage() {
         return `${s.grade}학년 ${s.classGroup}반`.trim();
     };
 
-    const classes = ["전체", ...Array.from(new Set(students.map(formatClassGroup))).sort()];
+    const classes = ["전체", ...Array.from(new Set((students || []).map(formatClassGroup))).sort()];
     
-    const filteredStudents = students.filter(s => {
+    const filteredStudents = (students || []).filter(s => {
         const className = formatClassGroup(s);
         return selectedClass === "전체" || className === selectedClass;
     });
 
-    const top3 = students.slice(0, 3);
+    const top3 = (students || []).slice(0, 3);
     const rest = filteredStudents;
 
     return (
         <div className="min-h-screen bg-slate-50 pt-32 pb-20 px-6">
-            <LoadingOverlay isVisible={isLoading} message="실시간 랭킹 데이터를 집계하고 있습니다..." />
+            {/* 데이터가 아예 없을 때만 전체 화면 로딩 노출 */}
+            <LoadingOverlay isVisible={isMounted && (students || []).length === 0} message="실시간 랭킹 데이터를 집계하고 있습니다..." />
 
             <div className="max-w-7xl mx-auto space-y-12">
                 {/* Header */}
@@ -69,17 +73,32 @@ export default function RankingPage() {
                     >
                         <button
                             onClick={loadData}
-                            disabled={isLoading}
+                            disabled={isValidating}
                             className="p-3 bg-white hover:bg-slate-50 transition-colors border-2 border-slate-100 rounded-2xl shadow-sm flex items-center justify-center text-slate-400 hover:text-primary active:scale-95 disabled:opacity-50"
                             title="데이터 새로고침"
                         >
-                            <svg className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <svg className={`w-5 h-5 ${isValidating ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </button>
 
-                        <div className="flex p-1.5 bg-white rounded-2xl border-2 border-slate-100 shadow-sm">
-                        {(["individual", "class"] as const).map((tab) => (
+                        <div className="flex p-1.5 bg-white rounded-2xl border-2 border-slate-100 shadow-sm relative">
+                            {/* Background Revalidation Indicator */}
+                            <AnimatePresence>
+                                {isValidating && (students || []).length > 0 && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        className="absolute -top-8 right-0 flex items-center gap-1.5 px-2 py-1 bg-primary/10 border border-primary/20 rounded-lg"
+                                    >
+                                        <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                                        <span className="text-[9px] font-black text-primary uppercase">Syncing...</span>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {(["individual", "class"] as const).map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
@@ -196,7 +215,7 @@ export default function RankingPage() {
                                 </div>
                                 <div className="grid grid-cols-1 gap-4">
                                     {rest.map((student, idx) => (
-                                        <RankingCard key={student.name} ranking={student} rank={students.findIndex(s => s.name === student.name) + 1} />
+                                        <RankingCard key={student.name} ranking={student} rank={(students || []).findIndex(s => s.name === student.name) + 1} />
                                     ))}
                                 </div>
                             </div>

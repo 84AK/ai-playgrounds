@@ -5,6 +5,7 @@ import PoseSubmissionTrigger from "./PoseSubmissionTrigger";
 import { getCourseContent } from "@/lib/courseContent";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
+import { decrypt } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function PoseCoursePage(props: { params: Promise<{ weekId: 
     const isValidWeek = !isNaN(poseWeekNum) && poseWeekNum >= 1;
 
     let content = "";
+    let title = "";
     let errorLoading = false;
 
     if (!isValidWeek) {
@@ -26,8 +28,19 @@ export default async function PoseCoursePage(props: { params: Promise<{ weekId: 
         try {
             const cookieStore = await cookies();
             const customUrl = cookieStore.get("custom_gs_url")?.value;
-            const result = await getCourseContent("POSE", poseWeekNum, customUrl);
+            const notionEncryptedKey = cookieStore.get("custom_notion_key")?.value;
+            const notionDbId = cookieStore.get("custom_notion_db_id")?.value;
+            const notionPriority = cookieStore.get("custom_notion_priority")?.value as "notion" | "sheet" | undefined;
+
+            const notionConfig = notionEncryptedKey && notionDbId ? {
+                apiKey: decrypt(notionEncryptedKey),
+                databaseId: notionDbId,
+                priority: notionPriority || "sheet"
+            } : undefined;
+
+            const result = await getCourseContent("POSE", poseWeekNum, customUrl, notionConfig);
             content = result.content;
+            title = result.title;
         } catch (err) {
             errorLoading = true;
             content = `# 진행 중인 문서가 없습니다.\n\n해당 주차의 학습 안내 문서를 찾을 수 없습니다.`;
@@ -59,7 +72,7 @@ export default async function PoseCoursePage(props: { params: Promise<{ weekId: 
                             <div className="mt-1.5 h-16 w-1 rounded-full bg-gradient-to-b from-blue-500 via-blue-500/40 to-transparent" />
                             <div>
                                 <h1 className="text-[clamp(2.2rem,4vw,4.25rem)] font-black tracking-tight text-[#2F3D4A]">
-                                    {poseWeekNum}주차 학습 가이드
+                                    {title || `${poseWeekNum}주차 학습 가이드`}
                                 </h1>
                                 <p className="mt-4 max-w-2xl text-[15px] leading-8 text-slate-600 font-medium">
                                     이번 주 포즈 게임 실습 목표와 구현 흐름을 먼저 읽고, 아래 문서를 따라가며 결과물을 완성하세요.

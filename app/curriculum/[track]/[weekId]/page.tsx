@@ -5,6 +5,7 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import CourseSubmissionTrigger from "@/components/course/CourseSubmissionTrigger";
 import UploadHomework from "@/components/course/UploadHomework";
+import { decrypt } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -19,14 +20,33 @@ export default async function UniversalCoursePage(props: { params: Promise<{ tra
     let content = "";
     let title = "";
     let errorLoading = false;
+    let rawData = "";
+
+    // 디버그 정보 (관리자용)
+    const cookieStore = await cookies();
+    const isAdmin = cookieStore.get("admin_session")?.value === "true";
+    let dataSource: "sheet" | "local" | "notion" = "local";
+    let usedUrl = "";
 
     try {
-        const cookieStore = await cookies();
         const customUrl = cookieStore.get("custom_gs_url")?.value;
-        const result = await getCourseContent(track, weekNum, customUrl);
+        const notionEncryptedKey = cookieStore.get("custom_notion_key")?.value;
+        const notionDbId = cookieStore.get("custom_notion_db_id")?.value;
+        const notionPriority = cookieStore.get("custom_notion_priority")?.value as "notion" | "sheet" | undefined;
+
+        const notionConfig = notionEncryptedKey && notionDbId ? {
+            apiKey: decrypt(notionEncryptedKey),
+            databaseId: notionDbId,
+            priority: notionPriority || "sheet"
+        } : undefined;
+
+        const result = await getCourseContent(track, weekNum, customUrl, notionConfig);
         
         content = result.content;
         title = result.title || `${track} ${weekNum}주차`;
+        dataSource = result.source;
+        usedUrl = customUrl || "SYSTEM DEFAULT";
+        rawData = result.rawResponse || "No raw data (Local Fallback)";
     } catch (err) {
         errorLoading = true;
         content = `# 수업 내용을 불러올 수 없습니다.\n\n해당 차시가 아직 준비 중이거나 시트 연동에 문제가 있습니다.`;

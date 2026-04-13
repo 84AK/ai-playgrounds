@@ -5,6 +5,7 @@ import UploadHomework from "./UploadHomework";
 import { getCourseContent } from "@/lib/courseContent";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
+import { decrypt } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
     const isValidWeek = !isNaN(mbtiWeekNum) && mbtiWeekNum >= 1;
 
     let content = "";
+    let title = "";
     let errorLoading = false;
 
     if (!isValidWeek) {
@@ -26,9 +28,20 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
         try {
             const cookieStore = await cookies();
             const customUrl = cookieStore.get("custom_gs_url")?.value;
+            const notionEncryptedKey = cookieStore.get("custom_notion_key")?.value;
+            const notionDbId = cookieStore.get("custom_notion_db_id")?.value;
+            const notionPriority = cookieStore.get("custom_notion_priority")?.value as "notion" | "sheet" | undefined;
+
+            const notionConfig = notionEncryptedKey && notionDbId ? {
+                apiKey: decrypt(notionEncryptedKey),
+                databaseId: notionDbId,
+                priority: notionPriority || "sheet"
+            } : undefined;
+
             // [복구] 서버에서 로컬 파일 + 스프레드시트 통합 조회 (개인 URL 최우선)
-            const result = await getCourseContent("MBTI", mbtiWeekNum, customUrl);
+            const result = await getCourseContent("MBTI", mbtiWeekNum, customUrl, notionConfig);
             content = result.content;
+            title = result.title;
         } catch (err) {
             errorLoading = true;
             content = `# 진행 중인 문서가 없습니다.\n\n해당 주차의 학습 안내 문서를 찾을 수 없습니다.`;
@@ -60,7 +73,7 @@ export default async function CoursePage(props: { params: Promise<{ weekId: stri
                             <div className="mt-1.5 h-20 w-1.5 rounded-full bg-gradient-to-b from-primary via-primary/40 to-transparent" />
                             <div>
                                 <h1 className="text-[clamp(2.5rem,5vw,5rem)] font-black tracking-tight text-[#2F3D4A] leading-[1.1]">
-                                    {mbtiWeekNum}주차 학습 가이드
+                                    {title || `${mbtiWeekNum}주차 학습 가이드`}
                                 </h1>
                                 <p className="mt-6 max-w-2xl text-[17px] leading-8 text-slate-600 font-medium">
                                     이번 주 학습 목표를 먼저 확인하고 실습을 진행해 보세요.<br/>

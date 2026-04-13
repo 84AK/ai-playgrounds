@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import AdminCourseEditorPanel from "@/components/AdminCourseEditorPanel";
 import { type CourseStructureItem } from "@/lib/courseContent";
 import { useEffect, useRef, useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import useBackendStatus from "@/hooks/useBackendStatus";
 
 function normalizeWeek(value: string | null): number {
     const parsed = Number(value);
@@ -21,7 +22,7 @@ export default function AdminCoursePage() {
     const [structure, setStructure] = useState<CourseStructureItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRegistering, setIsRegistering] = useState(false);
-    const [currentBackend, setCurrentBackend] = useState<"default" | "custom">("default");
+    const { isCustom, getTrackName, trackNames } = useBackendStatus();
 
     // Registration Form State
     const [regTrack, setRegTrack] = useState("");
@@ -32,12 +33,6 @@ export default function AdminCoursePage() {
     const weekContainerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        // 백엔드 상태 확인
-        const cookies = document.cookie.split("; ");
-        if (cookies.find(row => row.startsWith("custom_gs_url="))) {
-            setCurrentBackend("custom");
-        }
-
         const fetchStructure = async () => {
             try {
                 const res = await fetch("/api/course/structure");
@@ -82,6 +77,28 @@ export default function AdminCoursePage() {
         } catch (err) { alert("등록 실패"); }
     };
 
+    const handleRenameTrack = (originalName: string) => {
+        if (!isCustom) {
+            alert("⚠️ 트랙 이름 변경은 '개인 연구소(환경 설정)'가 연결된 상태에서만 가능합니다.");
+            return;
+        }
+
+        const currentName = getTrackName(originalName);
+        const newName = prompt(`'${currentName}' 트랙의 새로운 이름을 입력하세요:`, currentName);
+        
+        if (newName && newName !== currentName) {
+            const updatedNames = { ...trackNames, [originalName]: newName };
+            const expires = new Date();
+            expires.setFullYear(expires.getFullYear() + 1);
+            
+            document.cookie = `custom_track_names=${encodeURIComponent(JSON.stringify(updatedNames))}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
+            
+            // 전역 이벤트 발생 (훅 트리거)
+            window.dispatchEvent(new CustomEvent("backend:changed"));
+            alert("✨ 트랙 이름이 변경되었습니다!");
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#FDFAEF] px-6 py-12 text-[#2F3D4A] font-sans">
             <div className="mx-auto max-w-7xl space-y-10">
@@ -98,9 +115,9 @@ export default function AdminCoursePage() {
                         <div>
                             <h2 className="text-xl font-black italic tracking-tighter">Admin <span className="text-primary tracking-normal">Course Center</span></h2>
                             <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`w-2 h-2 rounded-full ${currentBackend === "custom" ? "bg-emerald-500 animate-pulse" : "bg-slate-300"}`}></span>
+                                <span className={`w-2 h-2 rounded-full ${isCustom ? "bg-emerald-500 animate-pulse" : "bg-slate-300"}`}></span>
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                    {currentBackend === "custom" ? "Working on Custom Sheet" : "Default Database Mode"}
+                                    {isCustom ? "Working on Custom Sheet" : "Default Database Mode"}
                                 </span>
                             </div>
                         </div>
@@ -124,17 +141,32 @@ export default function AdminCoursePage() {
                                 <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-1">Tracks</h3>
                                 <div className="flex flex-col gap-2">
                                     {tracks.map((item) => (
-                                        <Link
-                                            key={item}
-                                            href={`/admin/course?track=${item}&week=${weekId}`}
-                                            className={`w-full px-5 py-3 rounded-2xl font-black text-sm border-2 transition-all ${
-                                                item.toUpperCase() === track.toUpperCase()
-                                                    ? "bg-primary text-white border-[#2F3D4A] shadow-[4px_4px_0px_0px_#2F3D4A] translate-y-[-2px]"
-                                                    : "bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100"
-                                            }`}
-                                        >
-                                            {item}
-                                        </Link>
+                                        <div key={item} className="relative group/track">
+                                            <Link
+                                                href={`/admin/course?track=${item}&week=${weekId}`}
+                                                className={`w-full flex items-center justify-between px-5 py-3 rounded-2xl font-black text-sm border-2 transition-all ${
+                                                    item.toUpperCase() === track.toUpperCase()
+                                                        ? "bg-primary text-white border-[#2F3D4A] shadow-[4px_4px_0px_0px_#2F3D4A] translate-y-[-2px]"
+                                                        : "bg-slate-50 border-transparent text-slate-400 hover:bg-slate-100"
+                                                }`}
+                                            >
+                                                <span>{getTrackName(item)}</span>
+                                            </Link>
+                                            
+                                            {/* Rename Button (Small Pencil Icon) */}
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRenameTrack(item);
+                                                }}
+                                                className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/20 hover:bg-white/40 rounded-lg flex items-center justify-center opacity-0 group-hover/track:opacity-100 transition-opacity"
+                                                title="트랙 이름 변경"
+                                            >
+                                                <svg className={`w-3.5 h-3.5 ${item.toUpperCase() === track.toUpperCase() ? "text-white" : "text-slate-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     ))}
                                     <button 
                                         onClick={() => {

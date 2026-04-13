@@ -13,6 +13,7 @@ export default function GlobalAuthGuard() {
     const currentProfile = useLocalProfile();
     const [isMounting, setIsMounting] = useState(true);
     const [step, setStep] = useState<"login" | "avatar" | "authenticated">("authenticated");
+    const [isVerifying, setIsVerifying] = useState(false);
 
     const [formData, setFormData] = useState({
         name: "",
@@ -42,7 +43,6 @@ export default function GlobalAuthGuard() {
         }
 
         const checkUserValidity = async () => {
-            // 브라우저 로딩 시점에 동기적으로 프로필 존재 여부를 먼저 확인하여 깜빡임 방지
             const profileFromStorage = readLocalProfile();
 
             if (!profileFromStorage) {
@@ -51,31 +51,34 @@ export default function GlobalAuthGuard() {
                 return;
             }
 
-            try {
-                // 서버에서 해당 유저가 아직 존재하는지 검증 (삭제되었으면 자동 로그아웃)
-                try {
-                    const verifiedProfile = await fetchUserProfile(profileFromStorage.name);
-
-                    if (verifiedProfile.password !== profileFromStorage.password) {
-                        // 유저가 구글 시트에서 삭제되었거나 비밀번호가 변경된 경우
-                        clearLocalProfile();
-                        setStep("login");
-                    } else {
-                        // [Fix] 서버에서 불러온 최신 정보(학년/반 등)를 로컬에 강제 덮어씌움
-                        writeLocalProfile({
-                            ...profileFromStorage,
-                            ...verifiedProfile,
-                        });
-                        setStep("authenticated");
-                    }
-                } catch (networkError) {
-                    // 오프라인이거나 서버 일시적 오류일 경우 기존 접속 유지
-                    setStep("authenticated");
-                }
-            } catch (e) {
-                setStep("login");
+            // [V8.5] 세션 레벨 검증 캐시 확인 (새로고침이 아닌 단순 내비게이션 시 중복 검증 방지)
+            const isVerifiedThisSession = sessionStorage.getItem("auth_verified") === "true";
+            if (isVerifiedThisSession) {
+                setStep("authenticated");
+                setIsMounting(false);
+                return;
             }
-            setIsMounting(false);
+
+            try {
+                setIsVerifying(true);
+                const verifiedProfile = await fetchUserProfile(profileFromStorage.name);
+
+                if (verifiedProfile.password !== profileFromStorage.password) {
+                    clearLocalProfile();
+                    setStep("login");
+                } else {
+                    writeLocalProfile({ ...profileFromStorage, ...verifiedProfile });
+                    setStep("authenticated");
+                    // 이번 세션에서는 검증 완료됨을 기록
+                    sessionStorage.setItem("auth_verified", "true");
+                }
+            } catch (networkError) {
+                // 오프라인 등 네트워크 오류 시 기존 세션 우선 유지
+                setStep("authenticated");
+            } finally {
+                setIsVerifying(false);
+                setIsMounting(false);
+            }
         };
 
         checkUserValidity();
@@ -318,16 +321,30 @@ export default function GlobalAuthGuard() {
                             ) : (isLoginMode ? "로그인" : "다음 단계로")}
                         </button>
 
-                        <div className="text-center pt-2">
+                        <div className="text-center pt-2 space-y-4">
                             <button
                                 type="button"
                                 onClick={() => {
                                     setIsLoginMode(!isLoginMode);
                                     setFormData({ ...formData, school: "", grade: "", classGroup: "" });
                                 }}
-                                className="text-sm text-primary hover:underline hover:text-primary/80 transition-colors"
+                                className="text-sm text-primary hover:underline hover:text-primary/80 transition-colors block w-full"
                             >
                                 {isLoginMode ? "처음이신가요? 계정 만들기" : "이미 계정이 있으신가요? 로그인"}
+                            </button>
+                            
+                            {/* [Fix] 환경 설정 초기화 버튼 추가 (관리자 연동 이슈 해결용) */}
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    if(confirm("모든 테스트 설정을 초기화하고 원본 시스템(Vercel)으로 돌아가시겠습니까?")) {
+                                        await fetch("/api/admin/reset-settings", { method: "POST" });
+                                        window.location.reload();
+                                    }
+                                }}
+                                className="text-[9px] font-bold text-slate-400 hover:text-red-400 transition-colors uppercase tracking-tighter"
+                            >
+                                🔄 System Reset
                             </button>
                         </div>
                     </form>

@@ -1,14 +1,24 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getCourseStructure } from "@/lib/courseContent";
+import { decrypt } from "@/lib/crypto";
 
 export async function GET() {
     try {
         const cookieStore = await cookies();
-        // 학생도 코스 구조를 볼 수 있어야 하므로 관리자 체크 제거
-
+        
         const customUrl = cookieStore.get("custom_gs_url")?.value;
-        const data = await getCourseStructure(customUrl);
+        const notionEncryptedKey = cookieStore.get("custom_notion_key")?.value;
+        const notionDbId = cookieStore.get("custom_notion_db_id")?.value;
+        const notionPriority = cookieStore.get("custom_notion_priority")?.value as "notion" | "sheet" | undefined;
+
+        const notionConfig = notionEncryptedKey && notionDbId ? {
+            apiKey: decrypt(notionEncryptedKey),
+            databaseId: notionDbId,
+            priority: notionPriority || "sheet"
+        } : undefined;
+
+        const data = await getCourseStructure(customUrl, notionConfig);
         return NextResponse.json({ success: true, data });
     } catch (error) {
         console.error("커리큘럼 구조 조회 실패:", error);

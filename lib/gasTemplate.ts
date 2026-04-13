@@ -8,9 +8,24 @@ const SHEET_PROGRESS = "Progress";
 const SHEET_COURSE_CONTENTS = "CourseContents"; 
 const SHEET_REFERENCE_CODES = "ReferenceCodes";
 const SHEET_SHOWCASE_LINKS = "ShowcaseLinks"; 
+const SHEET_ADMINS = "Admins";
 
 const TARGET_FOLDER_ID = "{{FOLDER_ID}}";
 const REFERENCE_FOLDER_ID = ""; 
+
+function hashPassword(pass) {
+  if (!pass) return "";
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, pass);
+  let hash = "";
+  for (i = 0; i < digest.length; i++) {
+    let byte = digest[i];
+    if (byte < 0) byte += 256;
+    let bStr = byte.toString(16);
+    if (bStr.length == 1) bStr = "0" + bStr;
+    hash += bStr;
+  }
+  return hash;
+}
 
 function doOptions(e) { return handleCORS(); }
 function handleCORS() { return ContentService.createTextOutput("").setMimeType(ContentService.MimeType.TEXT); }
@@ -181,7 +196,73 @@ function doPost(e) {
       return createJSONResponse({ status: "success" });
     }
 
-    return createJSONResponse({ error: "Invalid Action" });
+    /* [ADMIN] 관리자 계정 처리 (V9.0) */
+    if (action === 'adminLogin') {
+      let sheet = ss.getSheetByName(SHEET_ADMINS);
+      if (!sheet) {
+        sheet = ss.insertSheet(SHEET_ADMINS);
+        sheet.appendRow(["이름", "역할", "비밀번호_해시", "상태", "생성일"]);
+        // 시트가 방금 생성되었으므로 첫 로그인은 무조건 Super Admin 등록 유도
+        return createJSONResponse({ status: "setup_required", message: "첫 번째 Super Admin을 등록해주세요." });
+      }
+      const rows = sheet.getDataRange().getValues();
+      let found = -1;
+      for (let i=1; i<rows.length; i++) {
+        if (rows[i][0].toString().trim() === data.name.trim()) { found = i + 1; break; }
+      }
+      
+      if (found === -1) {
+        // 첫 사용자인데 시트에 데이터가 없으면 Super Admin으로 즉시 등록 (최초 설치 세팅)
+        if (rows.length === 1) {
+          const hash = hashPassword(data.password);
+          sheet.appendRow([data.name, "super_admin", hash, "active", getKoreanTime()]);
+          return createJSONResponse({ status: "success", role: "super_admin", name: data.name });
+        }
+        return createJSONResponse({ error: "NotFound" });
+      }
+      
+      const role = rows[found-1][1];
+      const savedHash = rows[found-1][2];
+      const status = rows[found-1][3];
+      
+      if (status === "requested") return createJSONResponse({ status: "pending", message: "아직 승인 대기 중입니다." });
+      if (status === "approved" && !savedHash) {
+         // 승인되었으나 비번이 없는 경우 (최초 비번 설정)
+         const hash = hashPassword(data.password);
+         sheet.getRange(found, 3).setValue(hash);
+         sheet.getRange(found, 4).setValue("active");
+         return createJSONResponse({ status: "success", role: role, name: data.name, message: "비밀번호 설정 완료" });
+      }
+      
+      const inputHash = hashPassword(data.password);
+      if (inputHash === savedHash) {
+        return createJSONResponse({ status: "success", role: role, name: data.name });
+      }
+      return createJSONResponse({ error: "InvalidPassword" });
+    }
+
+    if (action === 'requestAdmin') {
+      let sheet = ss.getSheetByName(SHEET_ADMINS) || ss.insertSheet(SHEET_ADMINS);
+      if (sheet.getLastRow() === 0) sheet.appendRow(["이름", "역할", "비밀번호_해시", "상태", "생성일"]);
+      const rows = sheet.getDataRange().getValues();
+      for (let i=1; i<rows.length; i++) if(rows[i][0].toString().trim() === data.name.trim()) return createJSONResponse({error:"Exists"});
+      
+      sheet.appendRow([data.name, "admin", "", "requested", getKoreanTime()]);
+      return createJSONResponse({ status: "success" });
+    }
+
+    if (action === 'setAdminPassword') {
+       let sheet = ss.getSheetByName(SHEET_ADMINS);
+       const rows = sheet.getDataRange().getValues();
+       let found = -1;
+       for (let i=1; i<rows.length; i++) if(rows[i][0].toString().trim() === data.name.trim()) { found = i + 1; break; }
+       if (found === -1) return createJSONResponse({error:"NotFound"});
+       
+       const hash = hashPassword(data.password);
+       sheet.getRange(found, 3).setValue(hash);
+       sheet.getRange(found, 4).setValue("active");
+       return createJSONResponse({ status: "success" });
+    }
   } finally { lock.releaseLock(); }
 }
 
@@ -191,7 +272,11 @@ function doGet(e) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   try {
     if (action === 'testConnection') {
-      return createJSONResponse({ status: "success", message: "연결 성공 (V7.6 Master)" });
+      return createJSONResponse({ 
+        status: "success", 
+        message: "연결 성공 (V7.6 Master)",
+        spreadsheetName: ss.getName() 
+      });
     }
 
     if (action === 'getUser') {
@@ -260,7 +345,7 @@ function doGet(e) {
     if (action === 'getCourseContent') {
       const s = ss.getSheetByName(SHEET_COURSE_CONTENTS);
       if(!s) return createJSONResponse({ error: "Sheet Not Found" });
-      const rows = s.getValues(); // Markdown의 경우 DisplayValues보다 원본 Values가 안전함
+      const rows = s.getDataRange().getValues(); 
       const map = getHeaderMap(s);
       
       const idx = {
@@ -270,12 +355,14 @@ function doGet(e) {
         content: map.content ?? 3
       };
 
-      const targetTrack = (e.parameter.track || "").toLowerCase().trim();
+      const targetTrack = (e.parameter.track || "").toString().toLowerCase().trim();
       const targetWeek = parseInt(e.parameter.week);
 
       for (let i=1; i<rows.length; i++) {
         const rowTrack = (rows[i][idx.track] || "").toString().toLowerCase().trim();
-        const rowWeek = parseInt(rows[i][idx.week]);
+        // [V8.5] 주차 데이터가 시트에서 숫자로 저장된 경우와 문자열로 저장된 경우 모두 대응
+        const rowWeekRaw = rows[i][idx.week];
+        const rowWeek = parseInt(rowWeekRaw);
         
         if(rowTrack === targetTrack && rowWeek === targetWeek) {
           return createJSONResponse({ 
@@ -285,7 +372,7 @@ function doGet(e) {
           });
         }
       }
-      return createJSONResponse({ error: "Not Found" });
+      return createJSONResponse({ error: "Not Found", message: "Match not found in CourseContents sheet", searched: { track: targetTrack, week: targetWeek } });
     }
 
     if (action === 'getProgress') {
@@ -382,6 +469,41 @@ function doGet(e) {
       if(!sheet) return createJSONResponse({ status:"success", data:[] });
       const rows = sheet.getDataRange().getDisplayValues();
       let data = []; for (let i=1; i<rows.length; i++) data.push({ user_id: rows[i][0], track: rows[i][1], week: rows[i][2], url: rows[i][3], date: rows[i][4] });
+      return createJSONResponse({ status: "success", data: data });
+    }
+
+    if (action === 'getAdminStatus') {
+      const name = e.parameter.name;
+      const sheet = ss.getSheetByName(SHEET_ADMINS);
+      if (!sheet) return createJSONResponse({ status: "not_found" });
+      const rows = sheet.getDataRange().getValues();
+      for (let i=1; i<rows.length; i++) {
+        if (rows[i][0].toString().trim() === name.trim()) {
+          return createJSONResponse({ 
+            status: "success", 
+            name: rows[i][0], 
+            role: rows[i][1], 
+            adminStatus: rows[i][3], 
+            hasPassword: !!rows[i][2] 
+          });
+        }
+      }
+      return createJSONResponse({ status: "not_found" });
+    }
+
+    if (action === 'getAdmins') {
+      const sheet = ss.getSheetByName(SHEET_ADMINS);
+      if (!sheet) return createJSONResponse({ status: "success", data: [] });
+      const rows = sheet.getDataRange().getDisplayValues();
+      let data = [];
+      for (let i=1; i<rows.length; i++) {
+        data.push({
+          name: rows[i][0],
+          role: rows[i][1],
+          status: rows[i][3],
+          createdAt: rows[i][4]
+        });
+      }
       return createJSONResponse({ status: "success", data: data });
     }
 

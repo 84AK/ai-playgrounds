@@ -7,6 +7,7 @@ import Footer from "./Footer";
 import PrivacyModal from "./PrivacyModal";
 import PrivacyPolicyModal from "./PrivacyPolicyModal";
 import MaintenanceOverlay from "./MaintenanceOverlay";
+import BackendStatus from "./BackendStatus";
 
 interface LayoutClientWrapperProps {
   children: React.ReactNode;
@@ -27,20 +28,36 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
       const expires = new Date();
       expires.setFullYear(expires.getFullYear() + 1);
       
+      const targetUrl = decodeURIComponent(setupGsUrl);
       // 쿠키 저장
-      document.cookie = `custom_gs_url=${encodeURIComponent(setupGsUrl)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
+      document.cookie = `custom_gs_url=${encodeURIComponent(targetUrl)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
       if (setupFolderId) {
         document.cookie = `custom_folder_id=${encodeURIComponent(setupFolderId)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
       }
 
-      alert("✨ 선생님의 수업 환경과 성공적으로 연결되었습니다!");
-      
-      // URL 파라미터 제거 (Clean URL)
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
-      
-      // 상태 반영을 위한 새로고침
-      router.refresh();
+      // [V8.1] 선생님 성함/시트명 자동 로드 시도
+      const fetchTeacherName = async () => {
+        try {
+          const res = await fetch("/api/proxy-apps-script?action=testConnection", {
+            headers: { "x-custom-gs-url": targetUrl }
+          });
+          const data = await res.json();
+          if (data.spreadsheetName) {
+            document.cookie = `custom_teacher_name=${encodeURIComponent(data.spreadsheetName)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
+          }
+        } catch (e) { console.error("Auto fetch teacher name failed"); }
+        
+        alert("✨ 선생님의 수업 환경과 성공적으로 연결되었습니다!");
+        
+        // URL 파라미터 제거 (Clean URL)
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, "", newUrl);
+        
+        // 상태 반영을 위한 새로고침
+        router.refresh();
+      };
+
+      fetchTeacherName();
     }
 
     // 2. 환경 변수 기반 점검 모드 확인
@@ -76,6 +93,9 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
         isOpen={isPrivacyPolicyModalOpen} 
         onClose={() => setIsPrivacyPolicyModalOpen(false)} 
       />
+
+      {/* [NEW] Backend Connection Status Bar (Global) */}
+      <BackendStatus />
     </>
   );
 }
