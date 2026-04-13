@@ -42,11 +42,11 @@ export default async function UniversalCoursePage(props: { params: Promise<{ tra
 
         const result = await getCourseContent(track, weekNum, customUrl, notionConfig);
         
-        content = result.content;
+        content = result.content || "";
         title = result.title || `${track} ${weekNum}주차`;
         dataSource = result.source;
         usedUrl = customUrl || "SYSTEM DEFAULT";
-        rawData = result.rawResponse || "No raw data (Local Fallback)";
+        rawData = (result as any).rawResponse || "No raw data (Local Fallback)";
     } catch (err) {
         errorLoading = true;
         content = `# 수업 내용을 불러올 수 없습니다.\n\n해당 차시가 아직 준비 중이거나 시트 연동에 문제가 있습니다.`;

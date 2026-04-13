@@ -182,25 +182,22 @@ export async function getCourseContent(
        }
     }
 
-    console.warn(`⚠️ [CourseContent] No valid content found in GAS response. Falling back to local.`);
-
+    // 시트 또는 노션이 실패했을 경우의 최종 로컬 폴백
     try {
       const local = await readLocalContent(track, weekId);
-      return { content: local.content, title: "", source: "local" as const, filePath: local.filePath };
+      return { 
+        content: local.content as string, 
+        title: title as string, 
+        source: "local" as const, 
+        filePath: local.filePath as string 
+      };
     } catch {
-      return { content: "", title: "", source: "local" as const };
-    }
-    // [NEW] Notion 폴백 처리 (Sheet 실패 시 Notion 시도)
-    if (notionConfig && notionConfig.apiKey && notionConfig.databaseId && notionConfig.priority !== "notion") {
-      const notionRes = await getNotionCourseContent(notionConfig.apiKey, notionConfig.databaseId, track, weekId);
-      if (notionRes) return { ...notionRes, source: "notion" as const };
-    }
-
-    try {
-      const local = await readLocalContent(track, weekId);
-      return { content: local.content, title: "", source: "local" as const, filePath: local.filePath };
-    } catch {
-      return { content: "", title: "", source: "local" as const };
+      // 로컬 파일조차 없는 경우 (진짜 데이터 없음)
+      return { 
+        content: "", 
+        title: "", 
+        source: "local" as const 
+      };
     }
   } catch (error) {
     console.error("Content load failed:", error);
