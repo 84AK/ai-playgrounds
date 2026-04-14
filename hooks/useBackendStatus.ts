@@ -23,7 +23,13 @@ export default function useBackendStatus() {
             const trackCookie = cookies.find(row => row.startsWith("custom_track_names="));
             
             const isCustom = !!(gsUrl && gsUrl.split("=")[1]);
-            const teacherName = tName ? decodeURIComponent(tName.split("=")[1]) : "";
+            let teacherName = tName ? decodeURIComponent(tName.split("=")[1]) : "";
+            
+            // [NEW] 관리자 이름이 있을 경우 이름 연동 보강
+            if (!teacherName) {
+                const adminName = cookies.find(row => row.startsWith("admin_name="));
+                if (adminName) teacherName = decodeURIComponent(adminName.split("=")[1]);
+            }
             
             let trackNames: Record<string, string> = {};
             if (trackCookie) {

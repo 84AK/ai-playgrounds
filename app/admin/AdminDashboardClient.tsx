@@ -37,7 +37,12 @@ export default function AdminDashboardClient({
 
         const adminName = cookies.find(row => row.startsWith("admin_name="));
         if (adminName) {
-            setTeacherName(decodeURIComponent(adminName.split("=")[1]));
+            const decodedName = decodeURIComponent(adminName.split("=")[1]);
+            setTeacherName(decodedName);
+            // [NEW] 관리자 성함을 연구소 성함 쿠키와 동기화 (UI 일관성)
+            const expires = new Date();
+            expires.setFullYear(expires.getFullYear() + 1);
+            document.cookie = `custom_teacher_name=${encodeURIComponent(decodedName)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
         } else {
             const legacyName = cookies.find(row => row.startsWith("custom_teacher_name="));
             if (legacyName) setTeacherName(decodeURIComponent(legacyName.split("=")[1]));
@@ -361,10 +366,18 @@ export default function AdminDashboardClient({
                             </motion.button>
 
                             <motion.button
-                                onClick={() => router.push("/admin/course")}
+                                onClick={() => {
+                                    if (!isCustom) {
+                                        alert("⚠️ 수업을 운영하려면 먼저 '선생님 설정 센터'에서 구글 시트 연동을 완료해야 합니다.");
+                                        router.push("/admin/setup");
+                                        return;
+                                    }
+                                    router.push("/admin/course");
+                                }}
                                 whileHover={{ y: -8 }}
-                                className="group relative bg-[#F0FDFA] border-4 border-[#2F3D4A] rounded-[40px] p-10 text-left shadow-[12px_12px_0px_0px_#2F3D4A] overflow-hidden"
+                                className={`group relative ${isCustom ? "bg-[#F0FDFA]" : "bg-slate-100 opacity-80"} border-4 border-[#2F3D4A] rounded-[40px] p-10 text-left shadow-[12px_12px_0px_0px_#2F3D4A] overflow-hidden`}
                             >
+                                {!isCustom && <div className="absolute inset-0 bg-white/40 z-20 flex items-center justify-center font-black text-slate-400 rotate-12 text-sm uppercase tracking-widest">Setup Required</div>}
                                 <div className="absolute top-0 right-0 p-8 text-6xl opacity-20 group-hover:scale-125 transition-transform duration-500">📚</div>
                                 <div className="relative z-10">
                                     <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center text-white text-2xl mb-8 border-2 border-[#2F3D4A] group-hover:-rotate-12 transition-transform">

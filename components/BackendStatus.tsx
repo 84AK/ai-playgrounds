@@ -73,7 +73,9 @@ export default function BackendStatus() {
                             <div className="overflow-hidden">
                                 <p className="text-[9px] font-black text-primary uppercase tracking-widest leading-none mb-1 shrink-0">External Lab Active</p>
                                 <h4 className="text-sm font-bold text-white truncate max-w-[200px]">
-                                    {teacherName ? `${teacherName} 연구소` : "개인 연구소"}
+                                    {teacherName 
+                                        ? (teacherName.includes("선생님") ? `${teacherName} 연구소` : `${teacherName} 선생님 연구소`) 
+                                        : "개인 연구소"}
                                 </h4>
                             </div>
                         </div>

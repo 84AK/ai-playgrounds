@@ -36,6 +36,8 @@ export async function POST(request: Request) {
                     cookieStore.set("admin_session", "true", { httpOnly: true, secure: true, expires, path: "/" });
                     cookieStore.set("admin_name", result.name || name, { httpOnly: false, secure: true, expires, path: "/" });
                     cookieStore.set("admin_role", result.role || "admin", { httpOnly: false, secure: true, expires, path: "/" });
+                    // [NEW] Setup 페이지 연동을 위해 비밀번호 쿠키 저장
+                    cookieStore.set("custom_admin_password", password, { httpOnly: false, secure: true, expires, path: "/" });
                     
                     if (result.status === "setup_required") {
                       return NextResponse.json({ success: true, setupRequired: true, message: result.message });
@@ -56,6 +58,7 @@ export async function POST(request: Request) {
             cookieStore.set("admin_session", "true", { httpOnly: true, secure: true, expires, path: "/" });
             cookieStore.set("admin_name", "시스템 관리자", { httpOnly: false, secure: true, expires, path: "/" });
             cookieStore.set("admin_role", "super_admin", { httpOnly: false, secure: true, expires, path: "/" });
+            cookieStore.set("custom_admin_password", password, { httpOnly: false, secure: true, expires, path: "/" });
             return NextResponse.json({ success: true, role: "super_admin" });
         }
 

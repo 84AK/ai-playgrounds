@@ -10,7 +10,7 @@
 - **선생님 피드백**: 실시간 제출 확인 및 개별 맞춤 피드백 시스템.
 
 ## 🔗 Official Link
-- **[아크랩스 (AkLabs) 공식 홈페이지] (https://litt.ly/aklabs)**
+- **[아크랩스 (AkLabs) 공식 홈페이지](https://litt.ly/aklabs)**
 
 ## ⚙️ 설정 방법 (Getting Started)
 

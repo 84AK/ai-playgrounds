@@ -311,20 +311,16 @@ export default function Showcase() {
         // [NEW] 테스트용 이름 및 숫자/기호 포함 이름 필터링 강화
         const authorName = (project.author || "").trim();
         
-        // 1. 숫자 또는 특수문자가 포함된 이름 제외 (학번+이름 등 차단)
-        // 한글, 영문, 공백만 허용하는 정규표현식
-        const isValidName = /^[a-zA-Zㄱ-ㅎㅏ-ㅣ가-힣\s]+$/.test(authorName);
+        // 1. 이름 필터링 완화: 숫자(학번 등) 포함 허용
+        const isValidName = /^[a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣\s]+$/.test(authorName);
         if (!isValidName) return false;
 
-        // 2. 숫자가 포함되어 있는지 한 번 더 명시적으로 확인
-        if (/[0-9]/.test(authorName)) return false;
-
-        // 3. 특정 제외 이름 및 테스트용 키워드 차단
+        // 2. 특정 제외 이름 및 테스트용 키워드 차단
         const lowerName = authorName.toLowerCase();
-        if (["은우", "남은", "테스트", "test", "admin", "관리자", "수정테스트"].some(k => lowerName.includes(k))) return false;
+        if (["은우", "남은", "admin", "관리자", "수정테스트"].some(k => lowerName.includes(k))) return false;
 
-        // 4. 이름이 너무 짧거나 비어있는 경우 제외 (익명 등)
-        if (authorName.length < 2 || authorName === "익명") return false;
+        // 3. 이름이 너무 짧거나 비어있는 경우 제외 (익명 등)
+        if (authorName.length < 1 || authorName === "익명") return false;
 
         // --- 기존 필터링 로직 ---
         // 1. 검색어 필터링

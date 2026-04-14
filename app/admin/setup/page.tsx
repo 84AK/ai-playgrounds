@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/navigation"; // useRouter 사용 권장
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { GAS_TEMPLATE_CODE } from "@/lib/gasTemplate";
@@ -13,6 +12,8 @@ export default function TeacherSetupPage() {
     const [notionKey, setNotionKey] = useState("");
     const [notionDbId, setNotionDbId] = useState("");
     const [notionPriority, setNotionPriority] = useState<"notion" | "sheet">("sheet");
+    const [isMaintenance, setIsMaintenance] = useState(false);
+    const [isUpdatingMaintenance, setIsUpdatingMaintenance] = useState(false);
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
     const [isSaved, setIsSaved] = useState(false);
@@ -49,6 +50,14 @@ export default function TeacherSetupPage() {
         }
         if (adminPassCookie && adminPassCookie.split("=")[1]) {
             setAdminPassword(decodeURIComponent(adminPassCookie.split("=")[1]));
+        } else {
+            // [NEW] 쿠키에 없으면 세션 정보에서 가져오기 시도
+            const adminNameCookie = cookies.find(row => row.startsWith("admin_name="));
+            if (adminNameCookie) {
+                // 관리자 이름은 있으나 비밀번호 쿠키가 없는 경우, 
+                // 보안상 시트에서 직접 가져오기보다 사용자에게 재입력을 유도하거나, 
+                // 로그인 시 세션에 담아두는 로직이 필요할 수 있습니다.
+            }
         }
         if (teacherNameCookie && teacherNameCookie.split("=")[1]) {
             setTeacherName(decodeURIComponent(teacherNameCookie.split("=")[1]));
@@ -74,10 +83,21 @@ export default function TeacherSetupPage() {
     const fetchAdmins = async () => {
         setIsLoadingAdmins(true);
         try {
+            const adminNameCookie = document.cookie.split("; ").find(row => row.startsWith("admin_name="));
+            const decodedAdminName = adminNameCookie ? decodeURIComponent(adminNameCookie.split("=")[1]) : "";
+            
             const res = await fetch(`/api/proxy-apps-script?action=getAdmins`);
             const data = await res.json();
             if (data.status === "success") {
                 setAdmins(data.data);
+                
+                // [NEW] 슈퍼 관리자의 상태 필드로부터 점검 모드 여부 확인
+                const currentAdmin = data.data.find((a: any) => 
+                    a.role === 'super_admin' && (decodedAdminName ? a.name === decodedAdminName : true)
+                );
+                if (currentAdmin) {
+                    setIsMaintenance(currentAdmin.status === 'maintenance');
+                }
             }
         } catch (err) {
             console.error("Failed to fetch admins", err);
@@ -120,10 +140,23 @@ export default function TeacherSetupPage() {
         document.cookie = `custom_notion_priority=${encodeURIComponent(notionPriority)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
         document.cookie = `custom_slack_webhook=${encodeURIComponent(slackWebhook)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
 
+        // [NEW] 구글 시트(Admins 시트)의 비밀번호도 동시에 업데이트
+        if (pass && tName) {
+            try {
+                await fetch("/api/admin/update-password", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name: tName, newPassword: pass })
+                });
+            } catch (err) {
+                console.error("Failed to sync password to Admins sheet", err);
+            }
+        }
+
         setIsSaved(true);
         setIsNotionSaved(true);
         setCurrentStatus(url ? "custom" : "default");
-        setSavedNotionPriority(notionPriority); // 저장 후 현재 우선순위를 기준으로 설정
+        setSavedNotionPriority(notionPriority); 
         setHasNotionChanges(false);
         if (tName) setTeacherName(tName);
 
@@ -238,10 +271,11 @@ export default function TeacherSetupPage() {
             return;
         }
         const origin = window.location.origin;
-        const magicLink = `${origin}/?setup_gs_url=${encodeURIComponent(gasUrl)}&setup_folder_id=${encodeURIComponent(folderId)}`;
+        // [V10.0] 매직 링크에 선생님 성함(teacher_name) 포함하여 학생 화면 UI 동기화
+        const magicLink = `${origin}/?setup_gs_url=${encodeURIComponent(gasUrl)}&setup_folder_id=${encodeURIComponent(folderId)}&teacher_name=${encodeURIComponent(teacherName || "선생님")}`;
         
         navigator.clipboard.writeText(magicLink);
-        alert("학생용 매직 링크가 복사되었습니다!\n이 링크로 접속하는 학생들은 자동으로 선생님의 시트와 연결됩니다.");
+        alert(`✨ ${teacherName || "선생님"} 연구소 매직 링크가 복사되었습니다!\n이 링크로 접속하는 학생들은 상단에 선생님 성함이 표시됩니다.`);
     };
 
     const copyCodeToClipboard = () => {
@@ -291,6 +325,48 @@ export default function TeacherSetupPage() {
         setIsTesting(false);
     };
 
+    const toggleMaintenanceMode = async () => {
+        const adminNameCookie = document.cookie.split("; ").find(row => row.startsWith("admin_name="));
+        const decodedAdminName = adminNameCookie ? decodeURIComponent(adminNameCookie.split("=")[1]) : "";
+        
+        if (!decodedAdminName) {
+            alert("관리자 세션 정보가 없습니다. 다시 로그인해 주세요.");
+            return;
+        }
+
+        const newStatus = isMaintenance ? "active" : "maintenance";
+        const message = isMaintenance 
+            ? "점검 모드를 해제하고 연구소를 다시 오픈하시겠습니까?" 
+            : "연구소를 점검 모드로 전환하시겠습니까?\n학생들은 접속 시 점검 안내 문구를 보게 됩니다.";
+        
+        if (!confirm(message)) return;
+
+        setIsUpdatingMaintenance(true);
+        try {
+            // [FAILOVER] GAS에 updateAdminStatus가 직접 없으므로 
+            // 현재 GAS의 setAdminPassword 로직을 status 변경용으로 우회 시도하거나
+            // 관리자 시트 구조를 활용함. (여기서는 시도적인 API 호출 수행)
+            const res = await fetch("/api/admin/maintenance", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus, adminName: decodedAdminName })
+            });
+            
+            const result = await res.json();
+            if (result.success) {
+                setIsMaintenance(!isMaintenance);
+                alert(`✨ 연구소 상태가 [${newStatus === "maintenance" ? "점검 중" : "정상 서비스"}]로 변경되었습니다.`);
+                fetchAdmins(); // 목록 갱신
+            } else {
+                alert("상태 변경 실패: " + (result.error || "GAS에서 지원하지 않는 액션입니다."));
+            }
+        } catch (err) {
+            alert("서버 통신 실패");
+        } finally {
+            setIsUpdatingMaintenance(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#FDFAEF] pb-24 pt-12 px-6 font-sans">
             <div className="max-w-5xl mx-auto space-y-12">
@@ -329,7 +405,30 @@ export default function TeacherSetupPage() {
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2">
                                     <span className="w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center font-black text-sm border-2 border-[#2F3D4A]">1</span>
-                                    <h3 className="text-xl font-black text-[#2F3D4A]">Apps Script URL 연결</h3>
+                                    <h3 className="text-xl font-black text-[#2F3D4A]">연구소 명칭 및 백엔드 연결</h3>
+                                </div>
+                            </div>
+
+                            {/* [NEW] Teacher Name Input Section */}
+                            <div className="space-y-4 pb-4 border-b-2 border-dashed border-slate-100">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-primary uppercase tracking-widest pl-1 flex items-center gap-2">
+                                        🎨 연구소 명칭 (선생님 성함)
+                                        <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[8px] tracking-normal capitalize">Student Facing</span>
+                                    </label>
+                                    <div className="relative group">
+                                        <input 
+                                            type="text" 
+                                            value={teacherName}
+                                            onChange={(e) => setTeacherName(e.target.value)}
+                                            placeholder="예: 펭수, 김철수 (입력 시 '[성함] 선생님 연구소'로 표시됩니다)"
+                                            className="w-full px-5 py-4 bg-white border-2 border-primary rounded-2xl font-bold text-base focus:outline-none focus:ring-4 focus:ring-primary/20 transition-all shadow-sm"
+                                        />
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
+                                            <span className="text-[10px] font-black text-primary/40 group-focus-within:text-primary transition-colors">NAME SET</span>
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-slate-400 pl-1 italic">※ 이 성함은 학생용 매직 링크에 포함되어 학생 화면 상단바에 표시됩니다.</p>
                                 </div>
                             </div>
 
@@ -556,6 +655,44 @@ export default function TeacherSetupPage() {
                                     📥 템플릿 다운로드
                                 </a>
                             </div>
+                        </div>
+
+                        {/* Maintenance Tool - [NEW] V11.0 */}
+                        <div className={`border-4 border-[#2F3D4A] rounded-[32px] p-8 shadow-[8px_8px_0px_0px_#2F3D4A] space-y-5 transition-all duration-500 ${isMaintenance ? "bg-red-50" : "bg-emerald-50"}`}>
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-lg border-2 border-[#2F3D4A] shadow-sm ${isMaintenance ? "bg-red-500 text-white" : "bg-emerald-400 text-[#2F3D4A]"}`}>
+                                        {isMaintenance ? "🚧" : "✅"}
+                                    </span>
+                                    <h4 className="text-xl font-black text-[#2F3D4A]">점검 모드</h4>
+                                </div>
+                                <div className={`px-2 py-0.5 rounded-full text-[8px] font-black border-2 border-[#2F3D4A] ${isMaintenance ? "bg-red-500 text-white animate-pulse" : "bg-white text-emerald-500"}`}>
+                                    {isMaintenance ? "MAINTENANCE" : "LIVE"}
+                                </div>
+                            </div>
+
+                            <p className="text-[10px] font-bold text-slate-500 leading-relaxed bread-keep italic pl-1">
+                                {isMaintenance 
+                                    ? "현재 연구소가 점검 모드입니다. 학생들은 접속 시 점검 안내 페이지를 보게 됩니다." 
+                                    : admins.find(a => a.name === (document.cookie.split("; ").find(row => row.startsWith("admin_name="))?.split("=")[1] || ""))?.role === 'super_admin'
+                                        ? "연구소 전체(모든 선생님 수업)를 점검 모드로 전환합니다."
+                                        : "선생님의 수업 링크로 접속한 학생들에게만 점검 안내가 표시됩니다."}
+                            </p>
+
+                            <button 
+                                onClick={toggleMaintenanceMode}
+                                disabled={isUpdatingMaintenance}
+                                className={`w-full py-4 rounded-xl font-black text-xs border-2 border-[#2F3D4A] shadow-[3px_3px_0px_0px_#2F3D4A] transition-all relative overflow-hidden group ${isMaintenance ? "bg-white text-red-500 hover:bg-red-50" : "bg-white text-emerald-600 hover:bg-emerald-50"}`}
+                            >
+                                <div className="relative z-10 flex items-center justify-center gap-2">
+                                    {isUpdatingMaintenance ? (
+                                        <span className="animate-spin">🔄</span>
+                                    ) : (
+                                        isMaintenance ? "📢 점검 모드 종료 (연구소 오픈)" : "🚧 연구소 점검 시작하기"
+                                    )}
+                                </div>
+                                {isUpdatingMaintenance && <div className="absolute inset-0 bg-slate-100/50" />}
+                            </button>
                         </div>
                     </div>
 

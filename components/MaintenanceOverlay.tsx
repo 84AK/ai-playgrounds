@@ -1,13 +1,24 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 interface MaintenanceOverlayProps {
   isVisible: boolean;
 }
 
 export default function MaintenanceOverlay({ isVisible }: MaintenanceOverlayProps) {
+  const [teacherName, setTeacherName] = useState("");
+
+  useEffect(() => {
+    if (isVisible) {
+      const teacherNameCookie = document.cookie.split("; ").find(row => row.startsWith("custom_teacher_name="));
+      if (teacherNameCookie) {
+        setTeacherName(decodeURIComponent(teacherNameCookie.split("=")[1]));
+      }
+    }
+  }, [isVisible]);
+
   if (!isVisible) return null;
 
   return (
@@ -30,11 +41,11 @@ export default function MaintenanceOverlay({ isVisible }: MaintenanceOverlayProp
 
         <div className="space-y-4">
           <h1 className="text-4xl font-black tracking-tighter text-[#2F3D4A] leading-tight">
-            연구소 서비스를<br />
+            {teacherName ? `${teacherName} 연구소를` : "연구소 서비스를"}<br />
             업그레이드 중입니다!
           </h1>
           <p className="text-lg font-bold text-slate-600 leading-relaxed bread-keep px-4">
-            더 나은 연구 환경을 위해 시스템을 정비하고 있습니다.<br />
+            {teacherName ? teacherName : "선생님"}께서 더 나은 연구 환경을 위해 시스템을 정비하고 있습니다.<br />
             잠시 후 다시 방문해 주시면 더욱 놀라운 경험을 선사해 드릴게요! 🚀
           </p>
         </div>

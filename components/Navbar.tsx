@@ -73,7 +73,9 @@ export default function Navbar() {
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                   <span className="text-[10px] font-black text-amber-600 tracking-tight">
-                    {teacherName ? `${teacherName} 연구소` : "개인 연구소"}
+                    {teacherName 
+                      ? (teacherName.includes("선생님") ? `${teacherName} 연구소` : `${teacherName} 선생님 연구소`) 
+                      : "playground 연구소"}
                   </span>
                 </motion.div>
               )}

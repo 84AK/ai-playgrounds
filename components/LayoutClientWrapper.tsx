@@ -23,6 +23,7 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
     // 1. 매직 링크(URL 파라미터) 감지 및 연동
     const setupGsUrl = searchParams.get("setup_gs_url");
     const setupFolderId = searchParams.get("setup_folder_id");
+    const setupTeacherName = searchParams.get("teacher_name");
 
     if (setupGsUrl) {
       const expires = new Date();
@@ -34,8 +35,11 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
       if (setupFolderId) {
         document.cookie = `custom_folder_id=${encodeURIComponent(setupFolderId)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
       }
+      if (setupTeacherName) {
+        document.cookie = `custom_teacher_name=${encodeURIComponent(setupTeacherName)}; path=/; expires=${expires.toUTCString()}; SameSite=Lax`;
+      }
 
-      // [V8.1] 선생님 성함/시트명 자동 로드 시도
+      // [V8.1] 선생님 성함/시트명 자동 로드 시도 (이름 정보가 없을 경우만)
       const fetchTeacherName = async () => {
         try {
           const res = await fetch("/api/proxy-apps-script?action=testConnection", {
@@ -60,10 +64,58 @@ export default function LayoutClientWrapper({ children }: LayoutClientWrapperPro
       fetchTeacherName();
     }
 
-    // 2. 환경 변수 기반 점검 모드 확인
+    // 2. 환경 변수 기반 점검 모드 확인 (기본 시스템 점검)
     if (process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true") {
       setIsMaintenance(true);
     }
+
+    // 3. [NEW] 구글 시트 기반 점검 모드 확인 (지능형 타겟팅 점검 - V12.0)
+    const checkCustomMaintenance = async () => {
+      // 관리자 페이지는 점검 모드 체크에서 제외
+      const pathname = window.location.pathname;
+      if (pathname.startsWith('/admin') || pathname.startsWith('/setup')) {
+        return;
+      }
+
+      // 쿠키에서 연결된 선생님 성함 가져오기
+      const cookies = document.cookie.split("; ");
+      const teacherNameCookie = cookies.find(row => row.startsWith("custom_teacher_name="));
+      const teacherName = teacherNameCookie ? decodeURIComponent(teacherNameCookie.split("=")[1]) : "";
+      
+      try {
+        const res = await fetch(`/api/proxy-apps-script?action=getAdmins`);
+        const data = await res.json();
+        
+        if (data.status === "success" && data.data) {
+          // 1단계: 슈퍼 관리자가 점검 중인가? (전체 차단)
+          const superAdminMaintenance = data.data.find((a: any) => 
+            a.role === 'super_admin' && a.status === 'maintenance'
+          );
+
+          if (superAdminMaintenance) {
+            console.log("🚨 연구소 전체 점검 모드(Super Admin) 활성화됨");
+            setIsMaintenance(true);
+            return;
+          }
+
+          // 2단계: 나의 선생님이 점검 중인가? (개별 차단)
+          if (teacherName) {
+            const myTeacherMaintenance = data.data.find((a: any) => 
+              a.name === teacherName && a.status === 'maintenance'
+            );
+            
+            if (myTeacherMaintenance) {
+              console.log("🚧 해당 수업 점검 모드 감지됨:", myTeacherMaintenance.name);
+              setIsMaintenance(true);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to check custom maintenance status", err);
+      }
+    };
+
+    checkCustomMaintenance();
   }, [searchParams, router]);
 
   if (isMaintenance) {
