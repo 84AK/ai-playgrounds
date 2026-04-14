@@ -9,16 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@notionhq/client": "^2.2.14",
     "@tailwindcss/typography": "^0.5.19",
+    "browser-image-compression": "^2.0.2",
     "framer-motion": "^12.38.0",
     "jszip": "^3.10.1",
+    "jszip-utils": "^0.1.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "tailwindcss-animate": "^1.0.7",
-    "@notionhq/client": "^2.2.14"
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

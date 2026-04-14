@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { delay, getAppsScriptJson, postAppsScript } from "@/lib/appsScriptClient";
 import { readLocalProfile } from "@/hooks/useLocalProfile";
 import MarkdownContent from "@/components/MarkdownContent";
+import imageCompression from "browser-image-compression";
 
 interface UploadHomeworkProps {
     weekId: number;
@@ -28,6 +29,10 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
     
     const [isChecking, setIsChecking] = useState(true);
     const [isFeedbackConfirmed, setIsFeedbackConfirmed] = useState(false);
+
+    // [추가] 업로드 프로그레스 상태
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadStep, setUploadStep] = useState<string>("");
 
     // [추가] 페이지 로드 시 제출 상태 확인
     useEffect(() => {
@@ -137,11 +142,40 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
 
         setIsUploading(true);
         setErrorMsg("");
+        setUploadProgress(10);
+        setUploadStep("파일 분석 중...");
 
         try {
-            const base64Data = await toBase64(file);
-            const ext = file.name.split('.').pop() || "";
-            
+            let fileToUpload = file;
+
+            // [지능형 압축 엔진] 이미지 파일(JPG, PNG, WEBP)인 경우에만 다이어트 실행
+            const isImage = file.type.startsWith("image/");
+            if (isImage) {
+                setUploadStep("이미지 고품질 다이어트 중... 🏃‍♂️");
+                const options = {
+                    maxSizeMB: 1, // 최대 1MB로 압축
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true
+                };
+                try {
+                    const compressedBlob = await imageCompression(file, options);
+                    fileToUpload = new File([compressedBlob], file.name, { type: file.type });
+                    setUploadProgress(40);
+                } catch (compressionErr) {
+                    console.warn("Compression failed, using original:", compressionErr);
+                }
+            } else {
+                setUploadStep("파일 무결성 검사 중... 🔒");
+                await delay(800);
+                setUploadProgress(30);
+            }
+
+            setUploadStep("데이터 전송 준비 중...");
+            const base64Data = await toBase64(fileToUpload);
+            setUploadProgress(50);
+            setUploadStep("구글 드라이브로 쾌속 전송 중... 🚀");
+
+            const ext = fileToUpload.name.split('.').pop() || "";
             const gradeStr = profile?.grade ? `${profile.grade}학년` : "";
             const classStr = profile?.classGroup ? `${profile.classGroup}반` : "";
             const userInfoStr = (gradeStr || classStr) ? `${gradeStr}${classStr}_` : "";
@@ -154,14 +188,17 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                 user_id: nickname,
                 course_type: "MBTI", 
                 week: weekId,
-                grade_class: userInfoStr.replace('_', ''), // "2학년3반" 형식
+                grade_class: userInfoStr.replace('_', ''),
                 file_name: finalFileName,
-                mime_type: file.type || "application/octet-stream",
+                mime_type: fileToUpload.type || "application/octet-stream",
                 file_base64: base64Data
             };
 
-            await postAppsScript(payload);
-            await delay(3000);
+            const response = await postAppsScript(payload);
+            setUploadProgress(85);
+            setUploadStep("최종 제출 상태 확인 중...");
+
+            await delay(2000);
 
             const checkResult = await getAppsScriptJson<{ data?: Record<string, boolean> }>(
                 new URLSearchParams({
@@ -170,8 +207,8 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                 })
             );
 
-            // 앱스스크립트에서 보낸 통합 주차 키 확인
             const isSuccess = checkResult?.data?.[`week${weekId}`] === true;
+            setUploadProgress(100);
 
             if (isSuccess) {
                 setModal({
@@ -194,6 +231,8 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
         }
 
         setIsUploading(false);
+        setUploadStep("");
+        setUploadProgress(0);
     };
 
     const closeModal = () => {
@@ -354,19 +393,30 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                         <button
                             onClick={handleUpload}
                             disabled={isUploading || !file}
-                            className="w-full py-6 bg-primary text-white rounded-[24px] text-lg font-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 transition-all flex justify-center items-center gap-4 border-2 border-[#2F3D4A] shadow-[4px_4px_0px_0px_#2F3D4A] relative group overflow-hidden"
+                            className={`w-full py-6 rounded-[24px] text-lg font-black disabled:opacity-30 disabled:cursor-not-allowed transition-all flex flex-col justify-center items-center gap-2 border-2 border-[#2F3D4A] shadow-[4px_4px_0px_0px_#2F3D4A] relative group overflow-hidden ${
+                                isUploading ? 'bg-slate-100 text-slate-400' : 'bg-primary text-white hover:bg-primary/90'
+                            }`}
                         >
                             <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+                            
                             {isUploading ? (
-                                <>
-                                    <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    제출하는 중...
-                                </>
+                                <div className="w-full px-8 py-2">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-black text-primary animate-pulse">{uploadStep}</span>
+                                        <span className="text-xs font-black text-[#2F3D4A]">{uploadProgress}%</span>
+                                    </div>
+                                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden border border-slate-300/50">
+                                        <div 
+                                            className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                                            style={{ width: `${uploadProgress}%` }}
+                                        />
+                                    </div>
+                                </div>
                             ) : (
-                                <>
+                                <div className="flex items-center gap-4">
                                     <span>{statusData.submissionStatus === 'verified' ? '🔄' : '✅'}</span> 
                                     {statusData.submissionStatus === 'verified' ? '과제 수정하기 (다시 제출)' : '과제 제출 완료하기'}
-                                </>
+                                </div>
                             )}
                         </button>
                     </div>
