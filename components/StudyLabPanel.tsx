@@ -64,6 +64,7 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
       } catch (err) {
         console.error("Failed to load structure", err);
       } finally {
+        // [수정] 구조 데이터 로딩 완료는 여기서 처리
         setIsLoading(false);
       }
     };
@@ -108,7 +109,12 @@ export default function StudyLabPanel({ highlighted = false, className = "" }: S
 
   return (
     <>
-      {/* 백그라운드 업데이트 시 전체 화면 로딩 대신 진행 바에 표시 (유저 사용성 증대) */}
+      {/* [NEW] 데이터 전체 로딩 시까지 동기화 팝업 표시 */}
+      <LoadingOverlay 
+        isVisible={isLoading || (isLoadingProgress && !rawProgress)} 
+        message={isLoading ? "커리큘럼 정보를 가져오는 중..." : "개인별 학습 진도를 분석하고 있습니다..."}
+      />
+
       <div
         id="my-study-lab"
         className={`bento-item min-h-[380px] flex flex-col relative overflow-hidden transition-all duration-500 bg-white ${highlighted ? "ring-4 ring-primary ring-offset-4 ring-offset-background scale-[1.02]" : ""

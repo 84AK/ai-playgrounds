@@ -476,10 +476,10 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                                 <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                             )}
                         </div>
-                        <h3 className="text-3xl font-black mb-4 text-[#111111]">
+                        <h3 className="text-3xl font-black mb-4 text-black">
                             {modal.type === 'success' ? '제출 성공!' : '제출 실패'}
                         </h3>
-                        <p className="text-[#222222] font-black leading-relaxed mb-10 text-[18px] whitespace-pre-wrap">
+                        <p className="text-black font-black leading-relaxed mb-10 text-[18px] whitespace-pre-wrap">
                             {modal.message}
                         </p>
 

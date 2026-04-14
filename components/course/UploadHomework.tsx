@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { delay, getAppsScriptJson, postAppsScript } from "@/lib/appsScriptClient";
 import { readLocalProfile } from "@/hooks/useLocalProfile";
 import MarkdownContent from "@/components/MarkdownContent";
+import imageCompression from "browser-image-compression";
 
 interface UploadHomeworkProps {
     track: string;
@@ -26,6 +27,10 @@ export default function UploadHomework({ track, weekId }: UploadHomeworkProps) {
     
     const [isChecking, setIsChecking] = useState(true);
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    
+    // [추가] 업로드 프로그레스 상태
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadStep, setUploadStep] = useState<string>("");
 
     useEffect(() => {
         checkSubmissionStatus();
@@ -113,11 +118,40 @@ export default function UploadHomework({ track, weekId }: UploadHomeworkProps) {
 
         setIsUploading(true);
         setErrorMsg("");
+        setUploadProgress(10);
+        setUploadStep("파일 분석 중...");
 
         try {
-            const base64Data = await toBase64(file);
-            const ext = file.name.split('.').pop() || "";
-            
+            let fileToUpload = file;
+
+            // [지능형 압축 엔진] 이미지 파일(JPG, PNG, WEBP)인 경우에만 다이어트 실행
+            const isImage = file.type.startsWith("image/");
+            if (isImage) {
+                setUploadStep("이미지 고품질 다이어트 중... 🏃‍♂️");
+                const options = {
+                    maxSizeMB: 1, 
+                    maxWidthOrHeight: 1920,
+                    useWebWorker: true
+                };
+                try {
+                    const compressedBlob = await imageCompression(file, options);
+                    fileToUpload = new File([compressedBlob], file.name, { type: file.type });
+                    setUploadProgress(40);
+                } catch (compressionErr) {
+                    console.warn("Compression failed, using original:", compressionErr);
+                }
+            } else {
+                setUploadStep("파일 무결성 검사 중... 🔒");
+                await delay(800);
+                setUploadProgress(30);
+            }
+
+            setUploadStep("데이터 전송 준비 중...");
+            const base64Data = await toBase64(fileToUpload);
+            setUploadProgress(50);
+            setUploadStep("구글 드라이브로 쾌속 전송 중... 🚀");
+
+            const ext = fileToUpload.name.split('.').pop() || "";
             const gradeStr = profile?.grade ? `${profile.grade}학년` : "";
             const classStr = profile?.classGroup ? `${profile.classGroup}반` : "";
             const userInfoStr = (gradeStr || classStr) ? `${gradeStr}${classStr}_` : "";
@@ -132,12 +166,21 @@ export default function UploadHomework({ track, weekId }: UploadHomeworkProps) {
                 week: weekId,
                 grade_class: userInfoStr.replace('_', '') || "일반",
                 file_name: finalFileName,
-                mime_type: file.type || "application/octet-stream",
+                mime_type: fileToUpload.type || "application/octet-stream",
                 file_base64: base64Data
             };
 
-            await postAppsScript(payload);
-            await delay(3000);
+            const response = await postAppsScript(payload);
+            
+            // [에러 가드] 서버 응답이 성공이 아닌 경우 즉시 팝업 표시
+            if (response.status !== "success") {
+                throw new Error(response.message || "구글 드라이브 서버 응답 오류");
+            }
+
+            setUploadProgress(85);
+            setUploadStep("최종 제출 상태 확인 중...");
+
+            await delay(2000);
 
             const checkResult = await getAppsScriptJson<{ data?: Record<string, boolean> }>(
                 new URLSearchParams({
@@ -145,6 +188,8 @@ export default function UploadHomework({ track, weekId }: UploadHomeworkProps) {
                     user_id: nickname,
                 })
             );
+
+            setUploadProgress(100);
 
             if (checkResult?.data?.[`week${weekId}`] === true) {
                 setModal({
@@ -157,23 +202,26 @@ export default function UploadHomework({ track, weekId }: UploadHomeworkProps) {
                 setModal({
                     isOpen: true,
                     type: "error",
-                    message: `⚠️ 업로드 실패: 제출 결과를 확인하지 못했습니다.`,
+                    message: `⚠️ 업로드 실패: 제출 결과를 확인하지 못했습니다.\n네트워크 상태나 관리자 설정을 확인해 주세요.`,
                 });
             }
-        } catch (err) {
-            console.error(err);
-            setErrorMsg("파일 업로드 중 오류가 발생했습니다.");
+        } catch (err: any) {
+            console.error("Upload error details:", err);
+            setModal({
+                isOpen: true,
+                type: "error",
+                message: `❌ 업로드 중 치명적 오류가 발생했습니다.\n\n원인: ${err.message || "알 수 없는 에러"}\n(관리자 URL 또는 폴더 ID 설정을 확인해 주세요.)`,
+            });
+            setErrorMsg("파일 업로드에 실패했습니다. 다시 시도해 주세요.");
         } finally {
             setIsUploading(false);
+            setUploadStep("");
+            setUploadProgress(0);
         }
     };
 
     const closeModal = () => {
-        if (modal.type === 'success') {
-            router.push('/');
-        } else {
-            setModal({ ...modal, isOpen: false });
-        }
+        setModal({ ...modal, isOpen: false });
     };
 
     return (
@@ -258,11 +306,37 @@ export default function UploadHomework({ track, weekId }: UploadHomeworkProps) {
                     </div>
 
                     <button
+                        type="button"
                         onClick={handleUpload}
                         disabled={isUploading || !file}
-                        className="w-full py-6 bg-primary text-white rounded-[24px] text-lg font-black disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary/90 transition-all flex justify-center items-center gap-4 border-2 border-[#2F3D4A] shadow-[4px_4px_0px_0px_#2F3D4A]"
+                        className={`w-full py-6 rounded-[24px] text-lg font-black disabled:opacity-30 disabled:cursor-not-allowed transition-all flex flex-col justify-center items-center gap-2 border-2 border-[#2F3D4A] shadow-[4px_4px_0px_0px_#2F3D4A] relative group overflow-hidden ${
+                            isUploading ? 'bg-slate-100 text-slate-400' : 'bg-primary text-white hover:bg-primary/90'
+                        }`}
                     >
-                        {isUploading ? "제출 중..." : (statusData.submissionStatus === 'verified' ? "과제 수정하기 (다시 제출)" : "과제 제출 완료하기")}
+                        <div className="absolute inset-x-0 bottom-0 h-1 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+                        
+                        {isUploading ? (
+                            <div className="w-full px-8 py-3 bg-[#111111]/5 rounded-[20px] border border-[#111111]/10">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-[13px] font-black text-black animate-pulse flex items-center gap-2">
+                                         <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
+                                         {uploadStep}
+                                    </span>
+                                    <span className="text-[14px] font-black text-black bg-white px-3 py-1 rounded-full shadow-sm border border-slate-200">{uploadProgress}%</span>
+                                </div>
+                                <div className="w-full h-4 bg-slate-200/50 rounded-full overflow-hidden border-2 border-slate-200">
+                                    <div 
+                                        className="h-full bg-gradient-to-r from-primary via-[#60A5FA] to-primary transition-all duration-700 ease-out shadow-[0_0_15px_rgba(59,130,246,0.6)]"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-4">
+                                <span>{statusData.submissionStatus === 'verified' ? '🔄' : '✅'}</span> 
+                                {statusData.submissionStatus === 'verified' ? '과제 수정하기 (다시 제출)' : '과제 제출 완료하기'}
+                            </div>
+                        )}
                     </button>
                     {errorMsg && <p className="text-center text-xs font-black text-destructive">{errorMsg}</p>}
                 </div>
@@ -272,12 +346,12 @@ export default function UploadHomework({ track, weekId }: UploadHomeworkProps) {
             {modal.isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-background max-w-sm w-full p-10 rounded-[48px] shadow-2xl border border-white/10 animate-in zoom-in-95 duration-300 text-center text-white">
-                        <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-6 ${modal.type === 'success' ? 'bg-green-500' : 'bg-destructive'}`}>
-                            {modal.type === 'success' ? '✅' : '⚠️'}
+                        <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center mx-auto mb-6 ${modal.type === 'success' ? 'bg-green-500 shadow-[0_0_30px_rgba(34,197,94,0.4)]' : 'bg-destructive shadow-[0_0_30px_rgba(239,68,68,0.4)]'}`}>
+                            <span className="text-3xl">{modal.type === 'success' ? '✅' : '⚠️'}</span>
                         </div>
-                        <h3 className="text-2xl font-black mb-3">{modal.type === 'success' ? '제출 성공!' : '제출 실패'}</h3>
-                        <p className="text-slate-400 font-medium mb-10">{modal.message}</p>
-                        <button onClick={closeModal} className="w-full py-5 rounded-[24px] font-black bg-primary">확인</button>
+                        <h3 className="text-3xl font-black mb-4 text-black">{modal.type === 'success' ? '제출 성공!' : '제출 실패'}</h3>
+                        <p className="text-black font-black leading-relaxed mb-10 text-[18px] whitespace-pre-wrap">{modal.message}</p>
+                        <button type="button" onClick={closeModal} className="w-full py-5 rounded-[24px] font-black text-white bg-primary shadow-xl shadow-primary/20 hover:bg-primary/90 transition-all">확인</button>
                     </div>
                 </div>
             )}
