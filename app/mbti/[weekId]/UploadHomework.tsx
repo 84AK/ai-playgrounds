@@ -479,7 +479,7 @@ export default function UploadHomework({ weekId }: UploadHomeworkProps) {
                         <h3 className="text-3xl font-black mb-4 text-[#2F3D4A]">
                             {modal.type === 'success' ? '제출 성공!' : '제출 실패'}
                         </h3>
-                        <p className="text-slate-600 font-bold leading-relaxed mb-10 text-[16px] whitespace-pre-wrap">{modal.message}</p>
+                        <p className="text-[#2F3D4A] font-bold leading-relaxed mb-10 text-[18px] whitespace-pre-wrap opacity-90">{modal.message}</p>
 
                         <button
                             onClick={closeModal}
