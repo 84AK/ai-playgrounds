@@ -619,23 +619,31 @@ function validateAndSyncDriveEntry(userRow, week, layout, sheet) {
   if (!userRow) return { status: 'not_found' };
   
   const colS = week, colU = week + layout.urlOffset - 1;
-  let status = userRow.data[colS];
-  let url = userRow.data[colU];
+  let statusVal = userRow.data[colS];
+  let urlVal = userRow.data[colU];
   
-  if (!status || !url) return { status: 'not_found' };
-  try {
-    var fileIdMatch = url.match(/[-\w]{25,}/);
-    if (!fileIdMatch) throw "No ID";
-    const file = DriveApp.getFileById(fileIdMatch[0]);
-    if (file.isTrashed()) throw "Trashed";
-    return { status: 'verified', fileName: file.getName(), url: url };
-  } catch (e) {
-    if (sheet) {
-      sheet.getRange(userRow.index, colS + 1).setValue(false);
-      sheet.getRange(userRow.index, colU + 1).setValue("");
+  // [Fix] URL 유무와 관계없이 상태값이 TRUE이면 일단 완료로 인정 (홈 화면과 동기화)
+  const isChecked = (statusVal === true || statusVal === "TRUE" || statusVal === "true");
+  
+  if (!isChecked) return { status: 'not_found' };
+  
+  // URL이 있는 경우에만 드라이브 실물 검증 수행
+  if (urlVal) {
+    try {
+      var fileIdMatch = urlVal.match(/[-\w]{25,}/);
+      if (fileIdMatch) {
+        const file = DriveApp.getFileById(fileIdMatch[0]);
+        if (!file.isTrashed()) {
+          return { status: 'verified', fileName: file.getName(), url: urlVal };
+        }
+      }
+    } catch (e) {
+      console.warn("Drive sync failed:", urlVal);
     }
-    return { status: 'not_found' };
   }
+  
+  // URL이 없거나 검증 실패해도 시트 체크가 되어있다면 성공 반환
+  return { status: 'verified', fileName: "(시트 확인됨)", url: urlVal || "" };
 }
 
 /**

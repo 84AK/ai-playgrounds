@@ -36,7 +36,7 @@ export default function GlobalAuthGuard() {
         pathname?.startsWith("/showcase") || 
         pathname?.startsWith("/ranking") || 
         pathname?.startsWith("/preview") || // [HOTFIX] 상세보기 미리보기 페이지 공개
-        pathname === "/curriculum" ||
+        pathname?.startsWith("/curriculum") ||
         pathname === "/guide" ||
         pathname?.startsWith("/admin");
 
