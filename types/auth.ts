@@ -6,4 +6,5 @@ export interface UserProfile {
     password?: string;
     avatar: string;
     feedback?: string;
+    role?: "admin" | "super_admin" | "student"; 
 }

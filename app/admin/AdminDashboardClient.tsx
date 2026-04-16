@@ -92,6 +92,10 @@ export default function AdminDashboardClient({
                     alert("✨ 첫 관리자 등록이 완료되었습니다! (Super Admin)");
                 }
                 setIsLoggedIn(true);
+                // [NEW] 관리자 정보를 localStorage에 즉시 반영하여 Navbar/Showcase 동기화
+                localStorage.setItem("admin_name", result.name || name);
+                localStorage.setItem("admin_role", result.role || "admin");
+                window.dispatchEvent(new Event("auth:changed")); 
                 router.refresh();
             } else {
                 setError(result.error || "로그인 실패");
@@ -137,6 +141,12 @@ export default function AdminDashboardClient({
         document.cookie = "admin_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         document.cookie = "admin_name=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         document.cookie = "admin_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        
+        // [NEW] localStorage 관리자 정보도 함께 삭제
+        localStorage.removeItem("admin_name");
+        localStorage.removeItem("admin_role");
+        window.dispatchEvent(new Event("auth:changed"));
+
         setIsLoggedIn(false);
         setName("");
         setPassword("");

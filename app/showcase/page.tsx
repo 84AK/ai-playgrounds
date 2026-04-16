@@ -177,126 +177,139 @@ export default function Showcase() {
         return "MBTI 실습 결과물입니다.";
     };
 
-    // 구글 시트 데이터 로드
-    useEffect(() => {
-        async function loadData() {
+    // 구글 시트 데이터 로드 (SWR 방식의 캐싱 도입)
+    const loadData = async (isSilent = false) => {
+        // 1. 캐시 확인: 사용자에게 즉시 데이터를 보여주기 위함
+        const CACHE_KEY = "showcase_projects_cache";
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached && projects.length === 0) {
             try {
-                // 사용자님이 제공해주신 구글 시트 API URL에 getAllMbtiData 액션 추가 (쇼케이스 데이터 포함)
-                // [NEW] 캐시 방지를 위해 랜덤 파라미터(v) 추가
-                const result = await getAppsScriptJson<any>(new URLSearchParams({ 
-                    action: "getAllMbtiData",
-                    _t: Date.now().toString() 
-                }));
-
-                // 새로운 백엔드 응답 구조(mbti_questions, showcase_links) 대응
-                let rawProjects: any[] = [];
-                let customProjects: any[] = [];
-
-                if (result.status === "success" && result.data) {
-                    // MBTI 데이터 파싱 (API가 data 객체 안에 questions로 내려줌)
-                    if (result.data.questions) {
-                        const uniqueMap = new Map();
-                        result.data.questions.forEach((item: any) => {
-                            const author = item.Author || item.author || "익명";
-                            const type = item.TargetType || item.type || "MBTI";
-                            const key = `mbti-${author}-${type}`;
-                            if (!uniqueMap.has(key)) {
-                                uniqueMap.set(key, {
-                                    author, title: `${author} 연구원의 MBTI 테스트`,
-                                    type: "CUSTOM",
-                                    displayType: type,
-                                    source: "MBTI_BUILDER",
-                                    link: `/mbti/play?author=${encodeURIComponent(author)}`,
-                                    description: ""
-                                });
-                            }
-                        });
-                        rawProjects = Array.from(uniqueMap.values());
-                    }
-
-                    // 커스텀 링크 파싱 (API가 data 객체 안에 showcase_links 또는 ShowcaseLinks로 내려줌)
-                    const showcaseData = result.data.showcase_links || result.data.ShowcaseLinks || result.data.showcaseLinks;
-                    if (showcaseData) {
-                        customProjects = showcaseData.map((item: any) => ({
-                            ...(String(item.Url || item.url || "").includes("/mbti/play?author=")
-                                ? { type: "CUSTOM", source: "MBTI_BUILDER" }
-                                : {
-                                    type: normalizeCategory(item.Type || item.type || item.Category || item.category),
-                                    source: "SHOWCASE_LINK"
-                                }),
-                            timestamp: item.Timestamp || item.timestamp, // 고유 식별자 추가
-                            author: item.Author || item.author || "익명",
-                            title: item.Title || item.title || "무제 프로젝트",
-                            description: item.Description || item.description || "",
-                            displayType: "WEB",
-                            link: item.Url || item.url || "#",
-                            password: String(item.Password || item.password || "") // 권한 확인용
-                        })).filter((p: any) => p.source !== "MBTI_BUILDER"); // [NEW] 0주차 MBTI 빌더 데이터 제외
-                    }
+                const { data, timestamp } = JSON.parse(cached);
+                setProjects(data);
+                // 캐시가 아주 최신(1분 이내)이면 로딩 상태를 즉시 해제
+                if (Date.now() - timestamp < 60000) {
+                    setIsLoading(false);
+                    if (!isSilent) return; 
                 }
-
-                // 구글 시트 데이터를 정규 앱 카드 형식으로 병합
-                // 이제 rawProjects(0주차 MBTI 빌더 데이터)는 포함하지 않습니다.
-                const combinedData = [...customProjects];
-
-                // [NEW] 중복 데이터 제거 (URL 기준이 아닌 고유 타임스탬프 기준으로 변경하여 삭제 반영 확인)
-                const uniqueData = [];
-                const seenTimestamps = new Set();
-                for (const item of combinedData) {
-                    const tKey = String(item.timestamp || item.link);
-                    if (!seenTimestamps.has(tKey)) {
-                        seenTimestamps.add(tKey);
-                        uniqueData.push(item);
-                    }
-                }
-
-                const formatted = uniqueData.map((item: any, idx: number) => {
-                    let displayType = item.displayType || "APP";
-                    if (displayType.length > 15 || displayType.includes('{') || displayType.includes('[')) displayType = "APP";
-                    const createdAt = parseTimestamp(item.timestamp);
-
-                    // 서버에서 아바타 정보(users 객체) 및 프로필 정보를 넘겨주면 활용
-                    const userData = result.data?.users?.[item.author];
-                    
-                    // userData가 문자열인 경우(이전 버전)와 객체인 경우(최신 버전) 모두 대응
-                    const userAvatar = typeof userData === 'string' ? userData : userData?.avatar;
-                    const school = typeof userData === 'object' ? (userData?.school || "") : "";
-                    const grade = typeof userData === 'object' ? (userData?.grade || "") : "";
-                    const classGroup = typeof userData === 'object' ? (userData?.classGroup || "") : "";
-
-                    const imageOrEmoji = userAvatar ? userAvatar : `https://api.dicebear.com/7.x/bottts/svg?seed=${item.author || idx}&backgroundColor=b6e3f4`;
-
-                    return {
-                        id: idx + 1,
-                        timestamp: item.timestamp,
-                        title: item.title,
-                        author: item.author,
-                        type: item.type,
-                        description: getDescriptionText(item),
-                        link: item.link,
-                        password: item.password,
-                        source: item.source || "SHOWCASE_LINK",
-                        createdAt,
-                        createdDateKey: createdAt ? toDateKey(createdAt) : "",
-                        tags: ["AI", item.type, displayType],
-                        image: imageOrEmoji,
-                        // 필터링을 위한 추가 메타데이터
-                        school: normalizeSchoolName(school),
-                        grade,
-                        classGroup
-                    };
-                });
-
-                // 4. 안전한 상태 업데이트: reverse()는 원본 배열을 직접 변경하므로 복사본을 만들어 처리합니다.
-                setProjects([...formatted].reverse()); // 최신순
-            } catch (err) {
-                console.error("Showcase data fetch failed:", err);
-            } finally {
-                setIsLoading(false);
+            } catch (e) {
+                console.warn("Cache parse failed", e);
             }
         }
+
+        if (!isSilent) setIsLoading(true);
+        
+        try {
+            const result = await getAppsScriptJson<any>(new URLSearchParams({ 
+                action: "getAllMbtiData",
+                _t: Date.now().toString() 
+            }));
+
+            let rawProjects: any[] = [];
+            let customProjects: any[] = [];
+
+            if (result.status === "success" && result.data) {
+                if (result.data.questions) {
+                    const uniqueMap = new Map();
+                    result.data.questions.forEach((item: any) => {
+                        const author = item.Author || item.author || "익명";
+                        const type = item.TargetType || item.type || "MBTI";
+                        const key = `mbti-${author}-${type}`;
+                        if (!uniqueMap.has(key)) {
+                            uniqueMap.set(key, {
+                                author, title: `${author} 연구원의 MBTI 테스트`,
+                                type: "CUSTOM",
+                                displayType: type,
+                                source: "MBTI_BUILDER",
+                                link: `/mbti/play?author=${encodeURIComponent(author)}`,
+                                description: ""
+                            });
+                        }
+                    });
+                    rawProjects = Array.from(uniqueMap.values());
+                }
+
+                const showcaseData = result.data.showcase_links || result.data.ShowcaseLinks || result.data.showcaseLinks;
+                if (showcaseData) {
+                    customProjects = showcaseData.map((item: any) => ({
+                        ...(String(item.Url || item.url || "").includes("/mbti/play?author=")
+                            ? { type: "CUSTOM", source: "MBTI_BUILDER" }
+                            : {
+                                type: normalizeCategory(item.Type || item.type || item.Category || item.category),
+                                source: "SHOWCASE_LINK"
+                            }),
+                        timestamp: item.Timestamp || item.timestamp,
+                        author: item.Author || item.author || "익명",
+                        title: item.Title || item.title || "무제 프로젝트",
+                        description: item.Description || item.description || "",
+                        displayType: "WEB",
+                        link: item.Url || item.url || "#",
+                        password: String(item.Password || item.password || "")
+                    })).filter((p: any) => p.source !== "MBTI_BUILDER");
+                }
+            }
+
+            const combinedData = [...customProjects];
+            const uniqueData = [];
+            const seenTimestamps = new Set();
+            for (const item of combinedData) {
+                const tKey = String(item.timestamp || item.link);
+                if (!seenTimestamps.has(tKey)) {
+                    seenTimestamps.add(tKey);
+                    uniqueData.push(item);
+                }
+            }
+
+            const formatted = uniqueData.map((item: any, idx: number) => {
+                let displayType = item.displayType || "APP";
+                if (displayType.length > 15 || displayType.includes('{') || displayType.includes('[')) displayType = "APP";
+                const createdAt = parseTimestamp(item.timestamp);
+                const userData = result.data?.users?.[item.author];
+                const userAvatar = typeof userData === 'string' ? userData : userData?.avatar;
+                const school = typeof userData === 'object' ? (userData?.school || "") : "";
+                const grade = typeof userData === 'object' ? (userData?.grade || "") : "";
+                const classGroup = typeof userData === 'object' ? (userData?.classGroup || "") : "";
+                const imageOrEmoji = userAvatar ? userAvatar : `https://api.dicebear.com/7.x/bottts/svg?seed=${item.author || idx}&backgroundColor=b6e3f4`;
+
+                return {
+                    id: idx + 1,
+                    timestamp: item.timestamp,
+                    title: item.title,
+                    author: item.author,
+                    type: item.type,
+                    description: getDescriptionText(item),
+                    link: item.link,
+                    password: item.password,
+                    source: item.source || "SHOWCASE_LINK",
+                    createdAt,
+                    createdDateKey: createdAt ? toDateKey(createdAt) : "",
+                    tags: ["AI", item.type, displayType],
+                    image: imageOrEmoji,
+                    school: normalizeSchoolName(school),
+                    grade,
+                    classGroup
+                };
+            });
+
+            const finalData = [...formatted].reverse();
+            setProjects(finalData);
+
+            // 캐시 업데이트
+            localStorage.setItem(CACHE_KEY, JSON.stringify({
+                data: finalData,
+                timestamp: Date.now()
+            }));
+
+        } catch (err) {
+            console.error("Showcase data fetch failed:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
         loadData();
     }, []);
+
 
     const typeFilteredProjects = filter === "all" ? projects : projects.filter((p) => p.type === filter);
 
@@ -423,11 +436,12 @@ export default function Showcase() {
 
             setIsSubmitting(false);
             setShowModal(false);
+            loadData(); // 성공 즉시 목록 새로고침 시작
             setFormData({ author: "", title: "", description: "", url: "", password: "", type: "MBTI" });
             setAlertModal({
                 isOpen: true,
                 type: 'success',
-                message: "✨ 전시 등록이 완료되었습니다! 잠시 후 갤러리에 반영됩니다."
+                message: "✨ 전시 등록이 완료되었습니다!"
             });
 
         } catch (e: any) {
@@ -444,9 +458,11 @@ export default function Showcase() {
     const closeAlertModal = () => {
         setAlertModal({ ...alertModal, isOpen: false });
         if (alertModal.type === 'success') {
-            window.location.reload();
+            // [Fix] 페이지 전체 리로드 대신 데이터만 다시 불러와서 강제 로그아웃 방지
+            loadData();
         }
     };
+
 
     const handleEditClick = (e: React.MouseEvent, project: any) => {
         e.preventDefault();
@@ -464,6 +480,7 @@ export default function Showcase() {
         }
         if (authInput.author.trim() === activeProject.author.trim() && authInput.password === activeProject.password) {
             setShowEditAuthModal(false);
+            fetchMyProgress(); // 수정 창 열 때 진도 데이터 불러오기
             setFormData({
                 author: activeProject.author,
                 title: activeProject.title,
@@ -512,10 +529,11 @@ export default function Showcase() {
 
             setIsSubmitting(false);
             setShowEditModal(false);
+            loadData(); // 성공 즉시 목록 새로고침 시작
             setAlertModal({
                 isOpen: true,
                 type: 'success',
-                message: "✨ 전시 작품이 성공적으로 수정되었습니다! 잠시 후 반영됩니다."
+                message: "✨ 전시 작품이 성공적으로 수정되었습니다!"
             });
 
         } catch (e: any) {
@@ -548,10 +566,11 @@ export default function Showcase() {
 
             setIsSubmitting(false);
             setShowDeleteModal(false);
+            loadData(); // 성공 즉시 목록 새로고침 시작
             setAlertModal({
                 isOpen: true,
                 type: 'success',
-                message: "🗑️ 전시 작품 삭제가 완료되었습니다. 잠시 후 목록에서 사라집니다."
+                message: "🗑️ 전시 작품 삭제가 완료되었습니다."
             });
 
         } catch (e: any) {
@@ -757,8 +776,8 @@ export default function Showcase() {
                                             상세 보기
                                         </div>
                                         
-                                        {/* [NEW] 본인 작품인 경우 수정/삭제 버튼 표시 */}
-                                        {profile?.name === project.author && (
+                                        {/* [NEW] 본인 작품이거나 슈퍼 관리자인 경우 수정/삭제 버튼 표시 */}
+                                        {(profile?.name === project.author || profile?.role === 'super_admin') && (
                                             <div className="flex gap-1.5 animate-in fade-in slide-in-from-right-2 duration-500">
                                                 <button 
                                                     onClick={(e) => handleEditClick(e, project)}
@@ -942,9 +961,45 @@ export default function Showcase() {
                             <h3 className="text-2xl font-black">작품 정보 수정하기</h3>
                             <button onClick={() => setShowEditModal(false)} className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center hover:bg-muted font-bold text-muted-foreground">✕</button>
                         </div>
-                        <p className="text-sm text-muted-foreground font-medium mb-6"><span className="text-primary font-bold">[{activeProject.title}]</span> 정보를 수정합니다. 수정을 완료하려면 처음에 설정했던 비밀번호를 입력해야 합니다.</p>
+                        <p className="text-sm text-muted-foreground font-medium mb-6 leading-relaxed">
+                            <span className="text-primary font-bold">[{activeProject.title}]</span> 정보를 수정합니다. <br/>
+                            {profile?.role === 'super_admin' ? (
+                                <span className="text-primary font-black italic">🛡️ Super Admin 권한으로 모든 작품을 관리할 수 있습니다. 본인의 관리자 전용 비밀번호를 입력해주세요.</span>
+                            ) : (
+                                "수정을 완료하려면 등록 시 설정했던 비밀번호를 입력해야 합니다."
+                            )}
+                        </p>
 
                         <div className="space-y-4">
+                            {/* [NEW] 과제 불러오기 드롭다운 (수정 시에도 지원) */}
+                            <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 mb-2">
+                                <label className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 block">🎯 내 과제 불러오기 (자동 완성)</label>
+                                <select 
+                                    onChange={handleHomeworkSelect}
+                                    className="w-full bg-white border-2 border-primary/20 rounded-xl px-4 py-3 text-xs font-bold focus:border-primary outline-none transition-all"
+                                >
+                                    <option value="">불러올 과제를 선택하세요</option>
+                                    {isLoadingUserProgress ? (
+                                        <option disabled>진도 데이터를 동기화 중...</option>
+                                    ) : (userProgress && courseStructure.length > 0) ? (
+                                        <>
+                                            {Array.from(new Set(courseStructure.map(s=>s.track))).map(track => (
+                                                <optgroup key={track} label={track}>
+                                                    {courseStructure.filter(s=>s.track === track).map(s => (
+                                                        <option key={`${track}_${s.week}`} value={`week${s.week}`} disabled={!userProgress[`week${s.week}`]}>
+                                                            {s.week}주차: {s.title} {userProgress[`week${s.week}`] ? "✅" : "❌"}
+                                                        </option>
+                                                    ))}
+                                                </optgroup>
+                                            ))}
+                                        </>
+                                    ) : (
+                                        <option disabled>제출된 과제가 없거나 강의 구조를 불러오지 못했습니다.</option>
+                                    )}
+                                </select>
+                                <p className="text-[9px] text-muted-foreground mt-2 font-medium">※ 제출 완료된 과제만 불러올 수 있습니다.</p>
+                            </div>
+
                             <div>
                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">작성자 (Developer)</label>
                                 <input type="text" name="author" value={formData.author} onChange={handleInputChange} className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary font-medium" />
@@ -960,6 +1015,17 @@ export default function Showcase() {
                             <div>
                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">결과물 웹 URL (Link)</label>
                                 <input type="url" name="url" value={formData.url} onChange={handleInputChange} className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary font-medium" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">권한 확인 비밀번호 (Password)</label>
+                                <input 
+                                    type="password" 
+                                    name="password" 
+                                    value={formData.password} 
+                                    onChange={handleInputChange} 
+                                    placeholder={profile?.role === 'super_admin' ? "관리자 비밀번호 입력" : "등록 시 설정한 비밀번호"}
+                                    className="w-full bg-secondary/50 border border-border rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary font-medium" 
+                                />
                             </div>
 
                             {submitError && <p className="text-destructive text-sm font-bold bg-destructive/10 p-3 rounded-lg">{submitError}</p>}
@@ -986,7 +1052,11 @@ export default function Showcase() {
                         </div>
                         <p className="text-sm text-foreground font-medium mb-6 leading-relaxed">
                             정말로 <strong className="text-destructive">[{activeProject.title}]</strong> 전시를 <span className="underline decoration-destructive decoration-2 underline-offset-2">삭제</span>하시겠습니까? <br />
-                            <span className="text-muted-foreground text-xs mt-2 block">💡 이 작업은 되돌릴 수 없으며 복구가 불가능합니다.</span>
+                            {profile?.role === 'super_admin' ? (
+                                <span className="text-primary font-black mt-2 block italic">🛡️ Super Admin 권한으로 모든 작품을 관리할 수 있습니다. 본인의 관리자 전용 비밀번호를 입력해주세요.</span>
+                            ) : (
+                                <span className="text-muted-foreground text-xs mt-2 block">💡 이 작업은 되돌릴 수 없으며 복구가 불가능합니다. 등록 시 설정한 비밀번호를 입력해주세요.</span>
+                            )}
                         </p>
 
                         <div className="space-y-4">

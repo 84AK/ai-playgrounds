@@ -87,8 +87,17 @@ export default function Navbar() {
                 href="/my"
                 className="flex items-center gap-2 bg-secondary/80 hover:bg-secondary px-3 py-1.5 rounded-full border border-white/5 hover:border-white/20 transition-all shrink-0"
               >
-                <span className="text-xl leading-none">{profile.avatar}</span>
-                <span className="text-sm font-bold hidden sm:block pr-1">{profile.name}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xl leading-none">{profile.avatar}</span>
+                  <div className="flex flex-col items-start leading-tight">
+                    {profile.role && (
+                      <span className={`text-[8px] font-black uppercase tracking-wider ${profile.role === 'super_admin' ? 'text-primary' : 'text-amber-500'}`}>
+                        {profile.role === 'super_admin' ? 'Super Admin' : 'Admin'}
+                      </span>
+                    )}
+                    <span className="text-sm font-bold hidden sm:block">{profile.name}</span>
+                  </div>
+                </div>
               </Link>
             ) : isMounted ? (
               <Link

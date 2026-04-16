@@ -12,7 +12,7 @@ const SHEET_SHOWCASE_LINKS = "ShowcaseLinks";
 const SHEET_WEEKLY_FEEDBACKS = "WeeklyFeeds";
 
 // 🚨 [필수 확인] 사용자님의 원래 폴더 ID입니다!
-const TARGET_FOLDER_ID = "1-Gx2Mna?HW2nT4XXpnPCRLrcLrFOsgo8"; // 실제 값 확인 필요
+const TARGET_FOLDER_ID = "1-Gx2MnaqHW2nT4XXpnPCRLrcLrFOsgo8"; // 실제 값 확인 필요
 const REFERENCE_FOLDER_ID = "1YMY3pm-wjUAmt5Cqk_e1zREtdq9nan0t"; 
 
 function doOptions(e) { return handleCORS(); }

@@ -29,8 +29,13 @@ export default function GlobalAuthGuard() {
     const [showPassword, setShowPassword] = useState(false);
 
     const shouldBypassGuard =
+        pathname === "/" || // 랜딩 페이지는 공개
         pathname?.startsWith("/course/") ||
         pathname?.startsWith("/pose/") ||
+        pathname?.startsWith("/mbti/") || 
+        pathname?.startsWith("/showcase") || 
+        pathname?.startsWith("/ranking") || 
+        pathname?.startsWith("/preview") || // [HOTFIX] 상세보기 미리보기 페이지 공개
         pathname === "/curriculum" ||
         pathname === "/guide" ||
         pathname?.startsWith("/admin");
