@@ -9,17 +9,17 @@ interface HomeworkDashboardProps {
 }
 
 const mbtiSteps = [
-    { id: 1, label: "1주차: 기획 & 뼈대", key: "mbti_week1" },
-    { id: 2, label: "2주차: 디자인 꾸미기", key: "mbti_week2" },
-    { id: 3, label: "3주차: JS 인공지능 로직", key: "mbti_week3" },
-    { id: 4, label: "4주차: 배포 및 완성", key: "mbti_week4" },
+    { id: 1, label: "1주차: 기획 & 뼈대", key: "week1" },
+    { id: 2, label: "2주차: 디자인 꾸미기", key: "week2" },
+    { id: 3, label: "3주차: JS 인공지능 로직", key: "week3" },
+    { id: 4, label: "4주차: 배포 및 완성", key: "week4" },
 ];
 
 const poseSteps = [
-    { id: 1, label: "1주차: AI 연동", key: "pose_week1" },
-    { id: 2, label: "2주차: 게임 뼈대 제작", key: "pose_week2" },
-    { id: 3, label: "3주차: 물리 및 효과", key: "pose_week3" },
-    { id: 4, label: "4주차: 완성 및 배포", key: "pose_week4" },
+    { id: 1, label: "1주차: AI 연동", key: "week1" },
+    { id: 2, label: "2주차: 게임 뼈대 제작", key: "week2" },
+    { id: 3, label: "3주차: 물리 및 효과", key: "week3" },
+    { id: 4, label: "4주차: 완성 및 배포", key: "week4" },
 ];
 
 export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) {
@@ -88,7 +88,7 @@ export default function HomeworkDashboard({ nickname }: HomeworkDashboardProps) 
     };
 
     const renderStep = (step: typeof mbtiSteps[0], isCompleted: boolean, downloadUrl?: string, courseType: "MBTI" | "POSE" = "MBTI") => {
-        const key = `${courseType.toLowerCase()}_week${step.id}`;
+        const key = `week${step.id}`;
         const detailed = detailedStatus[key];
         const isCurrentDeleting = isDeleting === key;
 

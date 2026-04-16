@@ -1,6 +1,7 @@
 import { getAppsScriptJson } from "@/lib/appsScriptClient";
 
 export interface ProgressData {
+    [key: string]: any; // GAS API의 가변적인 키(week1, week1_url 등) 허용
     mbti_week0: boolean;
     mbti_week1: boolean;
     mbti_week2: boolean;
@@ -10,15 +11,6 @@ export interface ProgressData {
     pose_week2: boolean;
     pose_week3: boolean;
     pose_week4: boolean;
-    // Download URLs
-    mbti_week1_url?: string;
-    mbti_week2_url?: string;
-    mbti_week3_url?: string;
-    mbti_week4_url?: string;
-    pose_week1_url?: string;
-    pose_week2_url?: string;
-    pose_week3_url?: string;
-    pose_week4_url?: string;
 }
 
 const CACHE_KEY_PREFIX = "lab_progress_";
