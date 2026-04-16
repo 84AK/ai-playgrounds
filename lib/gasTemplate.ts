@@ -408,4 +408,4 @@ export const GAS_TEMPLATE_CODE = [
 "  const iter = parent.getFoldersByName(name);",
 "  return iter.hasNext() ? iter.next() : parent.createFolder(name);",
 "}"
-].join(\"\n\");
+].join("\n");
